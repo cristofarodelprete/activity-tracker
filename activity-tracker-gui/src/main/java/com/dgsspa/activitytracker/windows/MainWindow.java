@@ -12,6 +12,7 @@ import java.awt.GridBagLayout;
 import java.awt.Insets;
 import java.time.Duration;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -54,7 +55,7 @@ public class MainWindow extends JFrame implements InitializingBean {
 	
 	private JPanel list = null;
 	
-	private UpdateButtonAnimation updateButtonAnimation = null;
+	private Map<Activity, UpdateButtonAnimation> activityMap = new HashMap<Activity, UpdateButtonAnimation>();
 	
 	private FadeMouseListener fadeMouseListener = null;
 	
@@ -101,8 +102,10 @@ public class MainWindow extends JFrame implements InitializingBean {
 	}
 	
 	private void render() {
-		if (updateButtonAnimation != null)
-			updateButtonAnimation.stop();
+		for (UpdateButtonAnimation animation : activityMap.values()) {
+			animation.stop();
+			activityMap.clear();
+		}
 		Iterable<Activity> activities = activityService.getActivities();
 		list.removeAll();
 		GridBagLayout layout = (GridBagLayout)list.getLayout();
@@ -123,7 +126,7 @@ public class MainWindow extends JFrame implements InitializingBean {
 						new Insets(0, 0, 0, 0), 0, 0));
 				list.add(button);
 				if (activity.isActive()) {
-					updateButtonAnimation = new UpdateButtonAnimation(button, activity, this::buttonPrinter);
+					activityMap.put(activity, new UpdateButtonAnimation(button, activity, this::buttonPrinter));
 				}
 				JButton delete = new JButton();
 				delete.setAction(new DelegatedAction(e -> {
@@ -143,8 +146,25 @@ public class MainWindow extends JFrame implements InitializingBean {
 		validate();
 		pack();
 		repaint();
-		if (updateButtonAnimation != null)
-			new Thread(updateButtonAnimation).start();
+		for (UpdateButtonAnimation animation : activityMap.values()) {
+			new Thread(animation).start();
+		}
+	}
+	
+	private void exit() {
+		if (!activityMap.isEmpty()) {
+			String message = activityMap.size() > 1 ?
+					uiHelper.getMessage("message.activitiesRunning", activityMap.size()) :
+					uiHelper.getMessage("message.activityRunning");
+			uiHelper.confirm(message, () -> {
+				activityService.switchOff();
+				uiHelper.exit();
+			}, () -> {
+				uiHelper.exit();
+			}, null);
+		} else {
+			uiHelper.exit();
+		}
 	}
 	
 	private JPanel buildHeader() {
@@ -158,8 +178,7 @@ public class MainWindow extends JFrame implements InitializingBean {
 		header.add(Box.createHorizontalGlue());
 		exit = new JButton();
 		exit.setAction(new DelegatedAction(e -> {
-			activityService.switchOff();
-			uiHelper.exit();
+			exit();
 		}));
 		header.add(exit);
 		return header;
@@ -293,6 +312,7 @@ public class MainWindow extends JFrame implements InitializingBean {
 			setUndecorated(false);
 			setOpacity(1f);
 		}
+		setDefaultCloseOperation(DO_NOTHING_ON_CLOSE);
 		setResizable(false);
 		setAlwaysOnTop(configurationService.getConfig(ConfigKey.alwaysOnTop, true));
 		setVisible(true);
@@ -318,8 +338,7 @@ public class MainWindow extends JFrame implements InitializingBean {
 	@Override
 	public void afterPropertiesSet() throws Exception {
 		addWindowListener(new WindowCloseListener(e -> {
-			activityService.switchOff();
-			uiHelper.exit();
+			exit();
 		}));
 		build();
 		updateConfig();

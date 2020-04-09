@@ -38,10 +38,14 @@ public class UiHelper {
 	}
 	
 	public void confirm(String message, Runnable yesCallback) {
-		confirm(message, yesCallback, null);
+		confirm(message, yesCallback, null, null);
 	}
 	
 	public void confirm(String message, Runnable yesCallback, Runnable noCallback) {
+		confirm(message, yesCallback, noCallback, noCallback);
+	}
+	
+	public void confirm(String message, Runnable yesCallback, Runnable noCallback, Runnable cancelCallback) {
 		new Thread(() -> {
 			int result = JOptionPane.showConfirmDialog(null, message);
 			if (result == 0) {
@@ -51,6 +55,10 @@ public class UiHelper {
 			} else if (result == 1) {
 				if (noCallback != null) {
 					noCallback.run();
+				}
+			} else {
+				if (cancelCallback != null) {
+					cancelCallback.run();
 				}
 			}
 		}).start();
