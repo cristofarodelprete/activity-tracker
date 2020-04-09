@@ -4,7 +4,7 @@
 	<modelVersion>4.0.0</modelVersion>
 	<artifactId>activity-tracker-gui</artifactId>
 	<parent>
-		<groupId>com.dgsspa</groupId>
+		<groupId>it.priestly</groupId>
 		<artifactId>activity-tracker</artifactId>
 		<version>${revision}</version>
 	</parent>
@@ -13,7 +13,7 @@
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter</artifactId>
 		</dependency>
-			<dependency><groupId>com.dgsspa</groupId>
+			<dependency><groupId>it.priestly</groupId>
 			<artifactId>activity-tracker-business</artifactId>
 		</dependency>
 	</dependencies>
