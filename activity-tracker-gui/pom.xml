@@ -43,7 +43,7 @@
 								<fileVersion>${revision}.0</fileVersion>
 								<txtFileVersion>${revision}.0</txtFileVersion>
 								<fileDescription>${application.name}</fileDescription>
-								<copyright>(C) DGS S.p.A. 2020</copyright>
+								<copyright>(C) Cristofaro Del Prete 2020</copyright>
 								<productVersion>${revision}.0</productVersion>
 								<txtProductVersion>${revision}.0</txtProductVersion>
 								<productName>${application.name}</productName>
