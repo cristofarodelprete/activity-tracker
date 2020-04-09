@@ -4,7 +4,8 @@ public enum ConfigKey {
 	enableTransparency(Boolean.class),
 	hiddenOpacity(Float.class),
 	fadeDuration(Integer.class),
-	language;
+	language,
+	alwaysOnTop(Boolean.class);
 	
 	private final Class<?> type;
 	

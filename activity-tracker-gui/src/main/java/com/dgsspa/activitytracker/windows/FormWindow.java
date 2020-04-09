@@ -41,6 +41,7 @@ public class FormWindow extends JDialog {
 		    JLabel l = new JLabel(entry.getValue() + ": ", JLabel.TRAILING);
 		    form.add(l);
 		    JTextField textField = new JTextField(10);
+		    textField.setText(formValues.get(entry.getKey()));
 		    textField.getDocument().addDocumentListener((SimpleDocumentListener) e -> {
 		    	formValues.put(entry.getKey(), textField.getText());
 		    });

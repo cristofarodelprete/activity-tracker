@@ -12,6 +12,7 @@ import java.awt.GridBagLayout;
 import java.awt.Insets;
 import java.time.Duration;
 import java.util.Arrays;
+import java.util.Locale;
 import java.util.Map;
 import java.util.stream.Collectors;
 
@@ -55,6 +56,20 @@ public class MainWindow extends JFrame implements InitializingBean {
 	
 	private UpdateButtonAnimation updateButtonAnimation = null;
 	
+	private FadeMouseListener fadeMouseListener = null;
+	
+	private FrameDragListener frameDragListener = null;
+
+	private JButton settings = null;
+
+	private JButton add = null;
+
+	private JButton exit = null;
+
+	private JLabel title = null;
+
+	private String deleteText = null;
+	
 	private String zpad(int n, int d) {
 		String s = Long.toString(n);
 		while (s.length() < d) {
@@ -90,7 +105,6 @@ public class MainWindow extends JFrame implements InitializingBean {
 			updateButtonAnimation.stop();
 		Iterable<Activity> activities = activityService.getActivities();
 		list.removeAll();
-		String deleteText = uiHelper.getMessage("button.label.delete");
 		GridBagLayout layout = (GridBagLayout)list.getLayout();
 		int y = 0;
 		for (Activity activity : activities) {
@@ -137,18 +151,16 @@ public class MainWindow extends JFrame implements InitializingBean {
 		JPanel header = new JPanel();
 		header.setLayout(new BoxLayout(header, BoxLayout.LINE_AXIS));
 		header.setBorder(BorderFactory.createEmptyBorder(5, 5, 5, 5));
-		JLabel title = new JLabel();
-		title.setText(uiHelper.getMessage("dialog.title.list"));
+		title = new JLabel();
 		title.setFont(title.getFont().deriveFont(20f));
 		header.add(title);
 		header.add(Box.createRigidArea(new Dimension(5, 0)));
 		header.add(Box.createHorizontalGlue());
-		JButton exit = new JButton();
+		exit = new JButton();
 		exit.setAction(new DelegatedAction(e -> {
 			activityService.switchOff();
 			uiHelper.exit();
 		}));
-		exit.setText(uiHelper.getMessage("button.label.exit"));
 		header.add(exit);
 		return header;
 	}
@@ -159,7 +171,7 @@ public class MainWindow extends JFrame implements InitializingBean {
 		footer.setBorder(BorderFactory.createEmptyBorder(5, 5, 5, 5));
 	    footer.setAlignmentX(java.awt.Component.CENTER_ALIGNMENT);
 		footer.add(Box.createHorizontalGlue());
-		JButton add = new JButton();
+		add = new JButton();
 		add.setAction(new DelegatedAction(e -> {
 			FormWindow form = new FormWindow(
 					uiHelper.getMessage("dialog.title.create"),
@@ -184,9 +196,8 @@ public class MainWindow extends JFrame implements InitializingBean {
 			form.pack();
 			form.setVisible(true);
 		}));
-		add.setText(uiHelper.getMessage("button.label.create"));
 		footer.add(add);
-		JButton settings = new JButton();
+		settings = new JButton();
 		settings.setAction(new DelegatedAction(e -> {
 			Map<ConfigKey,String> config = configurationService.getRawConfig();
 			SettingsWindow form = new SettingsWindow(
@@ -199,7 +210,7 @@ public class MainWindow extends JFrame implements InitializingBean {
 					config,
 					(cfg) -> {
 						configurationService.setRawConfig(cfg);
-						uiHelper.info(uiHelper.getMessage("message.restartRequired"));
+						updateConfig();
 					},
 					uiHelper.getMessage("button.label.reset"),
 					b -> {
@@ -218,13 +229,13 @@ public class MainWindow extends JFrame implements InitializingBean {
 			form.pack();
 			form.setVisible(true);
 		}));
-		settings.setText(uiHelper.getMessage("button.label.settings"));
 		footer.add(settings);
 		footer.add(Box.createHorizontalGlue());
 		return footer;
 	}
 	
-	private void build(Container content) {
+	private void build() {
+		Container content = getContentPane();
 		content.setLayout(new BoxLayout(content, BoxLayout.PAGE_AXIS));
 		JPanel header = buildHeader();
 		content.add(header);
@@ -235,35 +246,82 @@ public class MainWindow extends JFrame implements InitializingBean {
 		JPanel footer = buildFooter();
 		content.add(footer);
 	}
-
-	@Override
-	public void afterPropertiesSet() throws Exception {
+	
+	private void setLocale() {
 		String languageTag = configurationService.getConfig(ConfigKey.language);
-		if (languageTag != null) uiHelper.setLocale(languageTag);
-		setTitle(uiHelper.getMessage("dialog.title.list"));
-		if (configurationService.getConfig(ConfigKey.enableTransparency, false)) {
+		if (languageTag != null) {
+			uiHelper.setLocale(languageTag);
+		} else {
+			uiHelper.setLocale(Locale.getDefault().toLanguageTag());
+		}
+	}
+	
+	private void setupWindow() {
+		dispose();
+		boolean enableTransparency = configurationService.getConfig(ConfigKey.enableTransparency, false);
+		if (enableTransparency) {
 			GraphicsEnvironment ge = GraphicsEnvironment.getLocalGraphicsEnvironment();
 			GraphicsDevice gd = ge.getDefaultScreenDevice();
 			if (!gd.isWindowTranslucencySupported(WindowTranslucency.TRANSLUCENT)) {
 				uiHelper.error("Translucency is not supported");
+				enableTransparency = false;
 			}
+		}
+		if (enableTransparency) {
 			float hiddenOpacity = configurationService.getConfig(ConfigKey.hiddenOpacity, 0.2f);
 			float transitionDuration = configurationService.getConfig(ConfigKey.fadeDuration, 250);
-			addMouseListener(new FadeMouseListener(this, hiddenOpacity, transitionDuration));
-			FrameDragListener frameDragListener = new FrameDragListener(this);
-			addMouseListener(frameDragListener);
-			addMouseMotionListener(frameDragListener);
+			if (fadeMouseListener == null) {
+				fadeMouseListener = new FadeMouseListener(this, hiddenOpacity, transitionDuration);
+				addMouseListener(fadeMouseListener);
+			}
+			if (frameDragListener == null) {
+				frameDragListener = new FrameDragListener(this);
+				addMouseListener(frameDragListener);
+				addMouseMotionListener(frameDragListener);
+			}
 			setUndecorated(true);
+		} else {
+			if (fadeMouseListener != null) {
+				removeMouseListener(fadeMouseListener);
+				fadeMouseListener = null;
+			}
+			if (frameDragListener != null) {
+				removeMouseListener(frameDragListener);
+				removeMouseMotionListener(frameDragListener);
+				frameDragListener = null;
+			}
+			setUndecorated(false);
 			setOpacity(1f);
 		}
 		setResizable(false);
-		setAlwaysOnTop(true);
+		setAlwaysOnTop(configurationService.getConfig(ConfigKey.alwaysOnTop, true));
+		setVisible(true);
+	}
+	
+	private void updateLabels() {
+		setTitle(uiHelper.getMessage("dialog.title.list"));
+		title.setText(uiHelper.getMessage("dialog.title.list"));
+		exit.setText(uiHelper.getMessage("button.label.exit"));
+		deleteText = uiHelper.getMessage("button.label.delete");
+		add.setText(uiHelper.getMessage("button.label.create"));
+		settings.setText(uiHelper.getMessage("button.label.settings"));
+	}
+
+	private void updateConfig() {
+		setLocale();
+		setupWindow();
+		updateLabels();
+		render();
+	}
+	
+	
+	@Override
+	public void afterPropertiesSet() throws Exception {
 		addWindowListener(new WindowCloseListener(e -> {
 			activityService.switchOff();
 			uiHelper.exit();
 		}));
-		build(getContentPane());
-		render();
-		setVisible(true);
+		build();
+		updateConfig();
 	}
 }
