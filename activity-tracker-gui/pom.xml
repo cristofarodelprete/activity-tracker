@@ -13,7 +13,8 @@
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter</artifactId>
 		</dependency>
-			<dependency><groupId>it.priestly</groupId>
+		<dependency>
+			<groupId>it.priestly</groupId>
 			<artifactId>activity-tracker-business</artifactId>
 		</dependency>
 	</dependencies>
@@ -50,6 +51,29 @@
 								<internalName>${project.build.finalName}</internalName>
 								<originalFilename>${application.name}.exe</originalFilename>
 							</versionInfo>
+						</configuration>
+					</execution>
+				</executions>
+			</plugin>
+			<plugin>
+				<artifactId>maven-resources-plugin</artifactId>
+				<executions>
+					<execution>
+						<phase>package</phase>
+						<goals>
+							<goal>copy-resources</goal>
+						</goals>
+						<configuration>
+							<outputDirectory>../releases/${revision}</outputDirectory>
+							<resources>
+								<resource>
+									<directory>${project.build.directory}</directory>
+									<includes>
+										<include>${application.name}.exe</include>
+									</includes>
+									<filtering>false</filtering>
+								</resource>
+							</resources>
 						</configuration>
 					</execution>
 				</executions>
