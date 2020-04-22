@@ -5,6 +5,8 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.convert.ConversionService;
 import org.springframework.stereotype.Service;
@@ -57,29 +59,33 @@ public class ConfigurationServiceImpl implements ConfigurationService {
 	}
 
 	@Override
-	public Map<ConfigKey, String> getRawConfig() {
-		Map<ConfigKey, String> map = new LinkedHashMap<>();
+	public Map<ConfigKey, Object> getConfig() {
+		Map<ConfigKey, Object> map = new LinkedHashMap<>();
 		for (Config config : configRepository.findAll()) {
-			map.put(Enum.valueOf(ConfigKey.class, config.getKey()), config.getValue());
+			ConfigKey key = Enum.valueOf(ConfigKey.class, config.getKey());
+			map.put(key, conversionService.convert(config.getValue(), key.type()));
 		}
 		return map;
 	}
 
 	@Override
-	public void setRawConfig(Map<ConfigKey, String> map) {
-		List<Config> configs = new LinkedList<>();
-		for (Map.Entry<ConfigKey, String> entry : map.entrySet()) {
+	public void setConfig(Map<ConfigKey, Object> map) {
+		Map<String,Config> configs = configRepository.findAll().stream().collect(Collectors.toMap(
+				c -> c.getKey(),
+				c -> c
+		));
+		List<Config> toUpdate = new LinkedList<Config>();
+		for (Map.Entry<ConfigKey, Object> entry : map.entrySet()) {
 			Config config = null;
-			Optional<Config> configOpt = configRepository.findByKey(entry.getKey().name());
-			if (configOpt.isPresent()) {
-				config = configOpt.get();
+			if (configs.containsKey(entry.getKey().name())) {
+				config = configs.get(entry.getKey().name());
 			} else {
 				config = new Config();
 				config.setKey(entry.getKey().name());
 			}
-			config.setValue(entry.getValue());
-			configs.add(config);
+			config.setValue(conversionService.convert(entry.getValue(), String.class));
+			toUpdate.add(config);
 		}
-		configRepository.saveAll(configs);
+		configRepository.saveAll(toUpdate);
 	}
 }

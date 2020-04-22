@@ -12,8 +12,8 @@ public interface ConfigurationService {
 	
 	<T> void setConfig(ConfigKey key, T value);
 	
-	Map<ConfigKey, String> getRawConfig();
+	Map<ConfigKey, Object> getConfig();
 	
-	void setRawConfig(Map<ConfigKey, String> map);
+	void setConfig(Map<ConfigKey, Object> map);
 	
 }

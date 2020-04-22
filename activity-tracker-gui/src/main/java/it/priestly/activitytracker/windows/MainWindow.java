@@ -13,6 +13,7 @@ import java.awt.Insets;
 import java.time.Duration;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Locale;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -36,6 +37,7 @@ import it.priestly.activitytracker.services.ConfigurationService;
 import it.priestly.activitytracker.support.FadeMouseListener;
 import it.priestly.activitytracker.support.FrameDragListener;
 import it.priestly.activitytracker.utils.DelegatedAction;
+import it.priestly.activitytracker.utils.Field;
 import it.priestly.activitytracker.utils.MapUtils;
 import it.priestly.activitytracker.utils.UiHelper;
 import it.priestly.activitytracker.utils.WindowCloseListener;
@@ -70,6 +72,8 @@ public class MainWindow extends JFrame implements InitializingBean {
 	private JLabel title = null;
 
 	private String deleteText = null;
+	
+	private SettingsWindow settingsWindow = null;
 	
 	private String zpad(int n, int d) {
 		String s = Long.toString(n);
@@ -196,10 +200,10 @@ public class MainWindow extends JFrame implements InitializingBean {
 					uiHelper.getMessage("dialog.title.create"),
 					uiHelper.getMessage("button.label.create.submit"),
 					MapUtils.asMap(
-						"attivita", uiHelper.getMessage("field.label.attivita")
+						"attivita", new Field<String>(String.class, uiHelper.getMessage("field.label.attivita"))
 					),
 					(map) -> {
-						String activityName = map.get("attivita");
+						String activityName = (String)map.get("attivita").getValue();
 						if (activityName != null && !activityName.isEmpty() &&
 								!activityService.activityExists(activityName)) {
 							Activity activity = new Activity();
@@ -218,8 +222,19 @@ public class MainWindow extends JFrame implements InitializingBean {
 		footer.add(add);
 		settings = new JButton();
 		settings.setAction(new DelegatedAction(e -> {
-			Map<ConfigKey,String> config = configurationService.getRawConfig();
-			SettingsWindow form = new SettingsWindow(
+			if (settingsWindow != null) {
+				settingsWindow.setVisible(true);
+				settingsWindow.toFront();
+				settingsWindow.requestFocus();
+				return;
+			}
+			Map<ConfigKey,Object> config = configurationService.getConfig();
+			Map<String,String> languageMap = new LinkedHashMap<>();
+			languageMap.put(null, uiHelper.getMessage("settings.options.language.default"));
+			for (String language : uiHelper.getLanguages()) {
+				languageMap.put(language, uiHelper.getMessage("settings.options.language." + language));
+			}
+			settingsWindow = new SettingsWindow(
 					uiHelper.getMessage("dialog.title.settings"),
 					uiHelper.getMessage("button.label.settings.submit"),
 					Arrays.stream(ConfigKey.values()).collect(Collectors.toMap(
@@ -227,8 +242,9 @@ public class MainWindow extends JFrame implements InitializingBean {
 							k -> uiHelper.getMessage("settings.label." + k.name())
 					)),
 					config,
+					MapUtils.asMap(ConfigKey.language, languageMap),
 					(cfg) -> {
-						configurationService.setRawConfig(cfg);
+						configurationService.setConfig(cfg);
 						updateConfig();
 					},
 					uiHelper.getMessage("button.label.reset"),
@@ -244,9 +260,12 @@ public class MainWindow extends JFrame implements InitializingBean {
 						uiHelper.saveFile(b, data);
 					}
 			);
-			form.build();
-			form.pack();
-			form.setVisible(true);
+			settingsWindow.build();
+			settingsWindow.pack();
+			settingsWindow.setVisible(true);
+			settingsWindow.addWindowListener(new WindowCloseListener(e2 -> {
+				settingsWindow = null;
+			}));
 		}));
 		footer.add(settings);
 		footer.add(Box.createHorizontalGlue());

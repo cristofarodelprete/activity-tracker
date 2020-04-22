@@ -39,7 +39,6 @@
 		<maven.compiler.target>1.8</maven.compiler.target>
 		<maven.compiler.source>1.8</maven.compiler.source>
 		<application.name>ActivityTracker</application.name>
-		<revision>1.0.0</revision>
-		<project.version>1.0.0</project.version>
+		<revision>1.0.1</revision>
 	</properties>
 </project>

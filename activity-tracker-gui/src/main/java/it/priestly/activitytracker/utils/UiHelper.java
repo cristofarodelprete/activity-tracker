@@ -4,6 +4,8 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.util.Arrays;
+import java.util.List;
 import java.util.Locale;
 
 import javax.swing.JFileChooser;
@@ -20,10 +22,16 @@ import org.springframework.stereotype.Component;
 @Scope(ConfigurableBeanFactory.SCOPE_SINGLETON)
 public class UiHelper {
 
+	private final String[] languages = new String[] { "en", "it" };
+	
 	private Locale locale = Locale.getDefault();
 	
 	@Autowired
     private MessageSource messageSource;
+	
+	public List<String> getLanguages() {
+		return Arrays.asList(languages);
+	}
 	
 	public void setLocale(String languageTag) {
 		locale = Locale.forLanguageTag(languageTag);

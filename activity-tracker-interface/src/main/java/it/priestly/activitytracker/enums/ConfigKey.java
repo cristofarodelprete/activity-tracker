@@ -1,9 +1,12 @@
 package it.priestly.activitytracker.enums;
 
+import java.math.BigDecimal;
+import java.math.BigInteger;
+
 public enum ConfigKey {
 	enableTransparency(Boolean.class),
-	hiddenOpacity(Float.class),
-	fadeDuration(Integer.class),
+	hiddenOpacity(BigDecimal.class),
+	fadeDuration(BigInteger.class),
 	language,
 	alwaysOnTop(Boolean.class);
 	

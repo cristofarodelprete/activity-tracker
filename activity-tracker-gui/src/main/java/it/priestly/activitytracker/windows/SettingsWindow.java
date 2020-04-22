@@ -1,5 +1,6 @@
 package it.priestly.activitytracker.windows;
 
+import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
@@ -9,6 +10,7 @@ import javax.swing.JPanel;
 
 import it.priestly.activitytracker.enums.ConfigKey;
 import it.priestly.activitytracker.utils.DelegatedAction;
+import it.priestly.activitytracker.utils.Field;
 
 public class SettingsWindow extends FormWindow {
 	private static final long serialVersionUID = -3540267461075177457L;
@@ -38,24 +40,30 @@ public class SettingsWindow extends FormWindow {
 		footer.add(export);
 	}
 	
+	@SuppressWarnings({ "unchecked", "rawtypes" })
 	public SettingsWindow(String title, String button, Map<ConfigKey,String> configLabels,
-			Map<ConfigKey,String> configValues, Consumer<Map<ConfigKey,String>> submit,
-			String resetLabel, Consumer<JButton> resetAction, String exportLabel, Consumer<JButton> exportAction) {
+			Map<ConfigKey,Object> configValues, Map<ConfigKey,Map<Object,String>> configOptions, 
+			Consumer<Map<ConfigKey,Object>> submit, String resetLabel, Consumer<JButton> resetAction,
+			String exportLabel, Consumer<JButton> exportAction) {
 		super(title,
 				button,
 				configLabels.entrySet().stream().collect(Collectors.toMap(
 						k -> k.getKey().name(),
-						k -> k.getValue()
-				)),
-				configValues.entrySet().stream().collect(Collectors.toMap(
-						p -> p.getKey().name(),
-						p -> p.getValue()
+						k -> new Field(
+								k.getKey().type(),
+								k.getValue(),
+								configOptions.get(k.getKey()),
+								configValues.get(k.getKey())
+						)
 				)),
 				(map) -> {
-					submit.accept(map.entrySet().stream().collect(Collectors.toMap(
-									p -> Enum.valueOf(ConfigKey.class, p.getKey()),
-									p -> p.getValue()
-							)));
+					Map<ConfigKey,Object> toSubmit = new HashMap<>();
+					for (Map.Entry<String,Field<?>> entry : map.entrySet()) {
+						toSubmit.put(
+								Enum.valueOf(ConfigKey.class, entry.getKey()),
+								entry.getValue().getValue());
+					}
+					submit.accept(toSubmit);
 					return true;
 				});
 		this.resetLabel = resetLabel;
