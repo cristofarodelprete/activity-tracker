@@ -55,6 +55,13 @@ public class MainWindow extends JFrame implements InitializingBean {
 	@Autowired
 	ActivityService activityService;
 	
+	private static final Map<ConfigKey,Object> defaultConfig = MapUtils.asMap(
+			ConfigKey.enableTransparency, Boolean.FALSE,
+			ConfigKey.hiddenOpacity, new Float(0.2f),
+			ConfigKey.fadeDuration, new Integer(250),
+			ConfigKey.alwaysOnTop, Boolean.TRUE
+		);
+	
 	private JPanel list = null;
 	
 	private Map<Activity, UpdateButtonAnimation> activityMap = new HashMap<Activity, UpdateButtonAnimation>();
@@ -74,6 +81,14 @@ public class MainWindow extends JFrame implements InitializingBean {
 	private String deleteText = null;
 	
 	private SettingsWindow settingsWindow = null;
+	
+	@SuppressWarnings("unchecked")
+	private <T> T getConfig(ConfigKey key) {
+		T value = configurationService.getConfig(key);
+		if (value == null && defaultConfig.containsKey(key))
+			value = (T)defaultConfig.get(key);
+		return value;
+	}
 	
 	private String zpad(int n, int d) {
 		String s = Long.toString(n);
@@ -229,6 +244,10 @@ public class MainWindow extends JFrame implements InitializingBean {
 				return;
 			}
 			Map<ConfigKey,Object> config = configurationService.getConfig();
+			for (Map.Entry<ConfigKey,Object> entry : defaultConfig.entrySet()) {
+				if (config.get(entry.getKey()) == null)
+					config.put(entry.getKey(), entry.getValue());
+			}
 			Map<String,String> languageMap = new LinkedHashMap<>();
 			languageMap.put(null, uiHelper.getMessage("settings.options.language.default"));
 			for (String language : uiHelper.getLanguages()) {
@@ -286,7 +305,7 @@ public class MainWindow extends JFrame implements InitializingBean {
 	}
 	
 	private void setLocale() {
-		String languageTag = configurationService.getConfig(ConfigKey.language);
+		String languageTag = getConfig(ConfigKey.language);
 		if (languageTag != null) {
 			uiHelper.setLocale(languageTag);
 		} else {
@@ -296,7 +315,7 @@ public class MainWindow extends JFrame implements InitializingBean {
 	
 	private void setupWindow() {
 		dispose();
-		boolean enableTransparency = configurationService.getConfig(ConfigKey.enableTransparency, false);
+		boolean enableTransparency = getConfig(ConfigKey.enableTransparency);
 		if (enableTransparency) {
 			GraphicsEnvironment ge = GraphicsEnvironment.getLocalGraphicsEnvironment();
 			GraphicsDevice gd = ge.getDefaultScreenDevice();
@@ -306,8 +325,8 @@ public class MainWindow extends JFrame implements InitializingBean {
 			}
 		}
 		if (enableTransparency) {
-			float hiddenOpacity = configurationService.getConfig(ConfigKey.hiddenOpacity, 0.2f);
-			float transitionDuration = configurationService.getConfig(ConfigKey.fadeDuration, 250);
+			float hiddenOpacity = getConfig(ConfigKey.hiddenOpacity);
+			float transitionDuration = getConfig(ConfigKey.fadeDuration);
 			if (fadeMouseListener == null) {
 				fadeMouseListener = new FadeMouseListener(this, hiddenOpacity, transitionDuration);
 				addMouseListener(fadeMouseListener);
@@ -333,7 +352,7 @@ public class MainWindow extends JFrame implements InitializingBean {
 		}
 		setDefaultCloseOperation(DO_NOTHING_ON_CLOSE);
 		setResizable(false);
-		setAlwaysOnTop(configurationService.getConfig(ConfigKey.alwaysOnTop, true));
+		setAlwaysOnTop(getConfig(ConfigKey.alwaysOnTop));
 		setVisible(true);
 	}
 	

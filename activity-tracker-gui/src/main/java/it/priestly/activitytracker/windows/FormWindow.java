@@ -4,8 +4,7 @@ import java.awt.Color;
 import java.awt.Component;
 import java.awt.Container;
 import java.awt.event.WindowEvent;
-import java.math.BigDecimal;
-import java.math.BigInteger;
+import java.lang.reflect.Constructor;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -43,90 +42,87 @@ public class FormWindow extends JDialog {
 
 	private String button;
 	
+	private JComboBox<?> buildComboBox(Field<Object> field) {
+		List<String> options = new ArrayList<String>();
+		List<Object> values = new ArrayList<Object>();
+		int i = 0;
+		Integer selected = null;
+		for (Map.Entry<Object,String> entry : field.getOptions().entrySet()) {
+			options.add(entry.getValue());
+			values.add(entry.getKey());
+			if (entry.getKey() == null && field.getValue() == null ||
+					entry.getKey() != null && entry.getKey().equals(field.getValue())) {
+				selected = i;
+			}
+			i++;
+		}
+		JComboBox<?> component = new JComboBox<>(options.toArray(new String[0]));
+		if (selected != null) component.setSelectedIndex(selected);
+	    component.addActionListener((SimpleActionListener) e -> {
+	    	int idx = component.getSelectedIndex();
+	    	if (idx < 0) {
+	    		field.setValue(null);
+	    	} else {
+	    		field.setValue(values.get(idx));
+	    	}
+	    });
+	    return component;
+	}
+	
+	private JCheckBox buildCheckBox(Field<Boolean> field) {
+		JCheckBox component = new JCheckBox();
+		component.setSelected(field.getValue() != null ? field.getValue() : false);
+		component.addChangeListener((SimpleChangeListener) e -> {
+	    	field.setValue(component.isSelected());
+	    });
+		return component;
+	}
+
+	private JTextField buildTextField(Field<String> field) {
+		JTextField component = new JTextField(10);
+	    component.setText(field.getValue());
+	    component.getDocument().addDocumentListener((SimpleDocumentListener) e -> {
+	    	field.setValue(component.getText());
+	    });
+	    return component;
+	}
+	
+	private <T> JTextField buildTypedTextField(Field<Object> field, Class<T> typeClass) {
+		try {
+			Constructor<T> fromString = typeClass.getConstructor(String.class);
+			JTextField component = new JTextField(10);
+			Border defaultBorder = component.getBorder();
+		    component.setText(field.getValue() != null ? field.getValue().toString() : null);
+		    component.getDocument().addDocumentListener((SimpleDocumentListener) e -> {
+		    	T value = null;
+		    	String text = component.getText();
+		    	try {
+		    		if (text != null && !text.trim().isEmpty()) {
+						value = fromString.newInstance(text);
+		    		}
+		    		component.setBorder(defaultBorder);
+			    	field.setValue(value);
+		    	} catch (Exception ex) {
+		    		component.setBorder(new LineBorder(Color.RED));
+		    	}
+		    });
+		    return component;
+		} catch (NoSuchMethodException | SecurityException ex) {
+			return null;
+		}
+	}
+	
 	@SuppressWarnings("unchecked")
 	private Component buildFieldComponent(Field<?> field) {
 		if (field.getOptions() != null) {
-			Field<Object> typedField = (Field<Object>)field;
-			List<String> options = new ArrayList<String>();
-			List<Object> values = new ArrayList<Object>();
-			int i = 0;
-			Integer selected = null;
-			for (Map.Entry<Object,String> entry : typedField.getOptions().entrySet()) {
-				options.add(entry.getValue());
-				values.add(entry.getKey());
-				if (entry.getKey() == null && field.getValue() == null ||
-						entry.getKey() != null && entry.getKey().equals(field.getValue())) {
-					selected = i;
-				}
-				i++;
-			}
-			JComboBox<?> component = new JComboBox<>(options.toArray(new String[0]));
-			if (selected != null) component.setSelectedIndex(selected);
-		    component.addActionListener((SimpleActionListener) e -> {
-		    	int idx = component.getSelectedIndex();
-		    	if (idx < 0) {
-		    		typedField.setValue(null);
-		    	} else {
-		    		typedField.setValue(values.get(idx));
-		    	}
-		    });
-		    return component;
+			return buildComboBox((Field<Object>)field);
 		} else if (field.getType().equals(Boolean.class)) {
-			Field<Boolean> typedField = (Field<Boolean>)field;
-			JCheckBox component = new JCheckBox();
-			component.setSelected(typedField.getValue() != null ? typedField.getValue() : false);
-			component.addChangeListener((SimpleChangeListener) e -> {
-		    	typedField.setValue(component.isSelected());
-		    });
-		    return component;
-		} else if (field.getType().equals(BigInteger.class)) {
-			Field<BigInteger> typedField = (Field<BigInteger>)field;
-			JTextField component = new JTextField(10);
-			Border defaultBorder = component.getBorder();
-		    component.setText(typedField.getValue() != null ? typedField.getValue().toString() : null);
-		    component.getDocument().addDocumentListener((SimpleDocumentListener) e -> {
-		    	BigInteger value = null;
-		    	String text = component.getText();
-		    	try {
-		    		if (text != null && !text.trim().isEmpty()) {
-		    			value = new BigInteger(text);
-		    		}
-		    		component.setBorder(defaultBorder);
-		    	} catch (NumberFormatException ex) {
-		    		component.setBorder(new LineBorder(Color.RED));
-		    	}
-		    	typedField.setValue(value);
-		    });
-		    return component;
-		} else if (field.getType().equals(BigDecimal.class)) {
-			Field<BigDecimal> typedField = (Field<BigDecimal>)field;
-			JTextField component = new JTextField(10);
-			Border defaultBorder = component.getBorder();
-			component.setText(typedField.getValue() != null ? typedField.getValue().toString() : null);
-		    component.getDocument().addDocumentListener((SimpleDocumentListener) e -> {
-		    	BigDecimal value = null;
-		    	String text = component.getText();
-		    	try {
-		    		if (text != null && !text.trim().isEmpty()) {
-		    			value = new BigDecimal(text);
-		    		}
-		    		component.setBorder(defaultBorder);
-		    	} catch (NumberFormatException ex) {
-		    		component.setBorder(new LineBorder(Color.RED));
-		    	}
-		    	typedField.setValue(value);
-		    });
-		    return component;
+			return buildCheckBox((Field<Boolean>)field);
 		} else if (field.getType().equals(String.class)) {
-			Field<String> typedField = (Field<String>)field;
-			JTextField component = new JTextField(10);
-		    component.setText(typedField.getValue());
-		    component.getDocument().addDocumentListener((SimpleDocumentListener) e -> {
-		    	typedField.setValue(component.getText());
-		    });
-		    return component;
+			return buildTextField((Field<String>)field);
+		} else {
+			return buildTypedTextField((Field<Object>)field, field.getType());
 		}
-		return null;
 	}
 	
 	private JPanel buildContent() {
