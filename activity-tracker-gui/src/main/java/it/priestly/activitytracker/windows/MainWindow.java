@@ -14,7 +14,6 @@ import java.time.Duration;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
-import java.util.Locale;
 import java.util.Map;
 import java.util.stream.Collectors;
 
@@ -25,7 +24,6 @@ import javax.swing.JButton;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
-import org.springframework.beans.factory.InitializingBean;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
@@ -43,7 +41,7 @@ import it.priestly.activitytracker.utils.UiHelper;
 import it.priestly.activitytracker.utils.WindowCloseListener;
 
 @Component
-public class MainWindow extends JFrame implements InitializingBean {
+public class MainWindow extends JFrame {
 	private static final long serialVersionUID = -150759974554189358L;
 	
 	@Autowired
@@ -304,17 +302,9 @@ public class MainWindow extends JFrame implements InitializingBean {
 		content.add(footer);
 	}
 	
-	private void setLocale() {
-		String languageTag = getConfig(ConfigKey.language);
-		if (languageTag != null) {
-			uiHelper.setLocale(languageTag);
-		} else {
-			uiHelper.setLocale(Locale.getDefault().toLanguageTag());
-		}
-	}
-	
 	private void setupWindow() {
 		dispose();
+		uiHelper.setLocale();
 		boolean enableTransparency = getConfig(ConfigKey.enableTransparency);
 		if (enableTransparency) {
 			GraphicsEnvironment ge = GraphicsEnvironment.getLocalGraphicsEnvironment();
@@ -326,7 +316,7 @@ public class MainWindow extends JFrame implements InitializingBean {
 		}
 		if (enableTransparency) {
 			float hiddenOpacity = getConfig(ConfigKey.hiddenOpacity);
-			float transitionDuration = getConfig(ConfigKey.fadeDuration);
+			int transitionDuration = getConfig(ConfigKey.fadeDuration);
 			if (fadeMouseListener == null) {
 				fadeMouseListener = new FadeMouseListener(this, hiddenOpacity, transitionDuration);
 				addMouseListener(fadeMouseListener);
@@ -366,15 +356,12 @@ public class MainWindow extends JFrame implements InitializingBean {
 	}
 
 	private void updateConfig() {
-		setLocale();
 		setupWindow();
 		updateLabels();
 		render();
 	}
 	
-	
-	@Override
-	public void afterPropertiesSet() throws Exception {
+	public void run() {
 		addWindowListener(new WindowCloseListener(e -> {
 			exit();
 		}));

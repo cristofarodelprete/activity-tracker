@@ -18,6 +18,9 @@ import org.springframework.context.MessageSource;
 import org.springframework.context.annotation.Scope;
 import org.springframework.stereotype.Component;
 
+import it.priestly.activitytracker.enums.ConfigKey;
+import it.priestly.activitytracker.services.ConfigurationService;
+
 @Component
 @Scope(ConfigurableBeanFactory.SCOPE_SINGLETON)
 public class UiHelper {
@@ -25,6 +28,9 @@ public class UiHelper {
 	private final String[] languages = new String[] { "en", "it" };
 	
 	private Locale locale = Locale.getDefault();
+	
+	@Autowired
+	ConfigurationService configurationService;
 	
 	@Autowired
     private MessageSource messageSource;
@@ -35,6 +41,15 @@ public class UiHelper {
 	
 	public void setLocale(String languageTag) {
 		locale = Locale.forLanguageTag(languageTag);
+	}
+
+	public void setLocale() {
+		String languageTag = configurationService.getConfig(ConfigKey.language);
+		if (languageTag != null) {
+			setLocale(languageTag);
+		} else {
+			setLocale(Locale.getDefault().toLanguageTag());
+		}
 	}
 	
 	public String getMessage(String code, Object... args) {
@@ -74,12 +89,10 @@ public class UiHelper {
 	
 	public void info(String message) {
 		JOptionPane.showMessageDialog(new JFrame(), message, getMessage("dialog.title.info"), JOptionPane.INFORMATION_MESSAGE);
-        System.exit(1);
 	}
 	
 	public void warning(String message) {
 		JOptionPane.showMessageDialog(new JFrame(), message, getMessage("dialog.title.warning"), JOptionPane.WARNING_MESSAGE);
-        System.exit(1);
 	}
 	
 	public void error(String message) {
