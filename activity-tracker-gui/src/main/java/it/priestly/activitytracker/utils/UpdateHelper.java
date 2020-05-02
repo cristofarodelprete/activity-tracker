@@ -7,8 +7,10 @@ import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipInputStream;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -27,21 +29,39 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 @PropertySource("classpath:update.properties")
 public class UpdateHelper {
 
+	private class UpdateAsset {
+		public final String name;
+		
+		public final String url;
+		
+		public final boolean archive;
+		
+		public UpdateAsset(String name, String url, boolean archive) {
+			this.name = name;
+			this.url = url;
+			this.archive = archive;
+		}
+	}
+	
 	@Autowired
     private UiHelper uiHelper;
 	
-	@Value("${application.executable}")
+	@Value("${application.executable:}")
 	private String executableName;
 	
-	@Value("${application.updateUrl}")
+	@Value("${application.updateUrl:}")
 	private String updateUrl;
+
+	@Value("${application.assetsToUpdate:}")
+	private String assetsToUpdate;
+
+	private String path = System.getProperty("user.dir");
 	
 	public void restart() {
-		String path = System.getProperty("user.dir");
 		try {
 			Runtime.getRuntime().exec(new File(path, executableName).getAbsolutePath(), null, new File(path));
 		} catch (IOException e) {
-			uiHelper.error("error restarting application");
+			uiHelper.error("message.errorRestarting");
 			System.exit(1);
 		}
 		System.exit(0);
@@ -71,34 +91,70 @@ public class UpdateHelper {
 		return 0;
 	}
 	
-	public void retrieveLatestVersion() {
+	private void unzip(String destination, InputStream inputStream) throws IOException {
+		String destinationPath = new File(destination).getCanonicalPath() + File.separator; 
+        try (ZipInputStream zipInputStream = new ZipInputStream(inputStream)) {
+	        ZipEntry zipEntry = zipInputStream.getNextEntry();
+	        while (zipEntry != null) {
+	            File destFile = new File(destination, zipEntry.getName());
+	            String destPath = destFile.getCanonicalPath();
+	            if (!destPath.startsWith(destinationPath)) {
+	                throw new IOException("Entry is outside of the target dir: " + zipEntry.getName());
+	            }
+	            Files.copy(zipInputStream, destFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
+	            zipEntry = zipInputStream.getNextEntry();
+	        }
+	        zipInputStream.closeEntry();
+        }
+	}
+	
+	private void update(List<UpdateAsset> assets, Runnable callback) {
+		for (UpdateAsset asset : assets) {
+			try (InputStream inputStream = new URL(asset.url).openStream()) {
+				if (asset.name.equals(executableName)) {
+					Files.move(Paths.get(path, executableName), Paths.get(path, executableName + ".bck"), StandardCopyOption.REPLACE_EXISTING);
+				}
+				if (asset.archive) {
+					unzip(path, inputStream);
+				} else {
+					Files.copy(inputStream, Paths.get(path, asset.name), StandardCopyOption.REPLACE_EXISTING);
+				}
+			} catch (IOException e) {
+				uiHelper.getMessage("message.errorUpdating");
+				System.exit(1);
+			};
+		}
+		restart();
 	}
 	
 	public void checkUpdates(String currentVersion, Runnable callback) {
-		String latestVersion = null;
-		Map<String,String> assets = new HashMap<String,String>();
-		uiHelper.info("current version: " + currentVersion);
-		if (currentVersion != null && !currentVersion.isEmpty()) {
+		try {
+			Files.deleteIfExists(Paths.get(path, executableName + ".bck"));
+		} catch (IOException e1) {
+			// do nothing
+		}
+		if (currentVersion != null) {
+			String latestVersion = null;
+			List<UpdateAsset> assets = new ArrayList<UpdateAsset>();
 			ObjectMapper objectMapper = new ObjectMapper();
 			try {
 				JsonNode latest = objectMapper.readTree(new URL(updateUrl));
 				latestVersion = latest.get("tag_name").asText().substring(1);
-				latest.get("assets").forEach(a -> {
-					assets.put(a.get("name").asText(), a.get("browser_download_url").asText());
+				latest.get("assets").forEach(asset -> {
+					String assetName = asset.get("name").asText();
+					if (assetsToUpdate == null || assetsToUpdate .isEmpty() ||
+							assetName.matches(assetsToUpdate)) {
+						String assetUrl = asset.get("browser_download_url").asText();
+						boolean isArchive = assetName.endsWith(".zip");
+						assets.add(new UpdateAsset(assetName, assetUrl, isArchive));
+					}
 				});
 			} catch (Exception e) {
-				uiHelper.error("unable to retrieve latest release");
+				latestVersion = null;
 			}
 			if (compareVersions(currentVersion, latestVersion) > 0) {
-				uiHelper.confirm("New version found, do you want to update?", () -> {
-					for (Map.Entry<String,String> entry : assets.entrySet()) {
-						try (InputStream inputStream = new URL(entry.getValue()).openStream()) {
-							Files.copy(inputStream, Paths.get(entry.getKey()), StandardCopyOption.REPLACE_EXISTING);
-						} catch (IOException e) {
-							uiHelper.error("error writing files");
-						};
-					}
-					restart();
+				uiHelper.confirm(uiHelper.getMessage("message.confirmUpdate", currentVersion, latestVersion), () -> {
+					update(assets, callback);
 				}, callback);
 				return;
 			}
