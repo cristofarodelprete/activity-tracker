@@ -8,9 +8,12 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
+
+import javax.swing.ProgressMonitor;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -28,20 +31,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 @Scope(ConfigurableBeanFactory.SCOPE_SINGLETON)
 @PropertySource("classpath:update.properties")
 public class UpdateHelper {
-
-	private class UpdateAsset {
-		public final String name;
-		
-		public final String url;
-		
-		public final boolean archive;
-		
-		public UpdateAsset(String name, String url, boolean archive) {
-			this.name = name;
-			this.url = url;
-			this.archive = archive;
-		}
-	}
 	
 	@Autowired
     private UiHelper uiHelper;
@@ -56,12 +45,27 @@ public class UpdateHelper {
 	private String assetsToUpdate;
 
 	private String path = System.getProperty("user.dir");
-	
-	public void restart() {
+
+	public void restart(String newExecutableName) {
 		try {
-			Runtime.getRuntime().exec(new File(path, executableName).getAbsolutePath(), null, new File(path));
+			try (InputStream resourceStream = UpdateHelper.class.getClassLoader().getResourceAsStream("ApplicationRestarter.bin")) {
+				Files.copy(
+						resourceStream,
+						Paths.get(path, "ApplicationRestarter.class"),
+						StandardCopyOption.REPLACE_EXISTING);
+			}
+	        String javaHome = System.getProperty("java.home");
+	        String javaBin = javaHome + File.separator + "bin" + File.separator + "java";
+	        List<String> command = new LinkedList<String>();
+	        command.add(javaBin);
+	        command.add("ApplicationRestarter");
+	        command.add(executableName);
+	        if (newExecutableName != null && !newExecutableName.equals(executableName)) {
+	        	command.add(newExecutableName);
+	        }
+	        Runtime.getRuntime().exec(command.toArray(new String[0]), null, new File(path));
 		} catch (IOException e) {
-			uiHelper.error("message.errorRestarting");
+			uiHelper.error(uiHelper.getMessage("message.errorUpdating"));
 			System.exit(1);
 		}
 		System.exit(0);
@@ -108,32 +112,38 @@ public class UpdateHelper {
         }
 	}
 	
-	private void update(List<UpdateAsset> assets, Runnable callback) {
+	private void update(String version, List<UpdateAsset> assets, Runnable callback) {
+		String newExecutableName = null;
+		int downloaded = 0;
+		int total = assets.stream().reduce(0, (sum, asset) -> sum + asset.size, (a, b) -> a + b);
+		ProgressMonitor progressMonitor = new ProgressMonitor(null, uiHelper.getMessage("dialog.title.updating", version), null, 0, total);
+        progressMonitor.setMillisToDecideToPopup(100);
+        progressMonitor.setMillisToPopup(100);
 		for (UpdateAsset asset : assets) {
-			try (InputStream inputStream = new URL(asset.url).openStream()) {
-				if (asset.name.equals(executableName)) {
-					Files.move(Paths.get(path, executableName), Paths.get(path, executableName + ".bck"), StandardCopyOption.REPLACE_EXISTING);
+			progressMonitor.setNote(uiHelper.getMessage("update.label.downloading", asset.name));
+			try (MonitoredInputStream inputStream = new MonitoredInputStream(progressMonitor, downloaded, new URL(asset.url).openStream())) {
+				String assetName = asset.name;
+				if (assetName.equals(executableName)) {
+					assetName = assetName + ".new";
+					newExecutableName = assetName;
 				}
 				if (asset.archive) {
 					unzip(path, inputStream);
 				} else {
-					Files.copy(inputStream, Paths.get(path, asset.name), StandardCopyOption.REPLACE_EXISTING);
+					Files.copy(inputStream, Paths.get(path, assetName), StandardCopyOption.REPLACE_EXISTING);
 				}
-			} catch (IOException e) {
-				uiHelper.getMessage("message.errorUpdating");
+				downloaded += asset.size;
+			} catch (Exception e) {
+				uiHelper.error(uiHelper.getMessage("message.errorUpdating"));
 				System.exit(1);
 			};
 		}
-		restart();
+		uiHelper.info(uiHelper.getMessage("message.updated", version));
+		restart(newExecutableName);
 	}
 	
 	public void checkUpdates(String currentVersion, Runnable callback) {
-		try {
-			Files.deleteIfExists(Paths.get(path, executableName + ".bck"));
-		} catch (IOException e1) {
-			// do nothing
-		}
-		if (currentVersion != null) {
+		//if (currentVersion != null) {
 			String latestVersion = null;
 			List<UpdateAsset> assets = new ArrayList<UpdateAsset>();
 			ObjectMapper objectMapper = new ObjectMapper();
@@ -145,20 +155,22 @@ public class UpdateHelper {
 					if (assetsToUpdate == null || assetsToUpdate .isEmpty() ||
 							assetName.matches(assetsToUpdate)) {
 						String assetUrl = asset.get("browser_download_url").asText();
+						int assetSize = asset.get("size").asInt();
 						boolean isArchive = assetName.endsWith(".zip");
-						assets.add(new UpdateAsset(assetName, assetUrl, isArchive));
+						assets.add(new UpdateAsset(assetName, assetUrl, assetSize, isArchive));
 					}
 				});
 			} catch (Exception e) {
 				latestVersion = null;
 			}
 			if (compareVersions(currentVersion, latestVersion) > 0) {
+				final String version = latestVersion;
 				uiHelper.confirm(uiHelper.getMessage("message.confirmUpdate", currentVersion, latestVersion), () -> {
-					update(assets, callback);
+					update(version, assets, callback);
 				}, callback);
 				return;
 			}
-		}
+		//}
 		callback.run();
 	}
 }
