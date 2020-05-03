@@ -35,38 +35,52 @@ public class UpdateHelper {
 	@Autowired
     private UiHelper uiHelper;
 	
-	@Value("${application.executable:}")
 	private String executableName;
+
+	private String path;
 	
 	@Value("${application.updateUrl:}")
 	private String updateUrl;
 
-	@Value("${application.assetsToUpdate:}")
-	private String assetsToUpdate;
+	@Value("${application.assetsFilter:}")
+	private String assetsFilter;
 
-	private String path = System.getProperty("user.dir");
-
+	public UpdateHelper() {
+		File classPath = new File(System.getProperty("java.class.path"));
+		if (classPath.isFile()) {
+			executableName = classPath.getName();
+			path = new File(classPath.getParent()).getAbsolutePath();
+		} else {
+			executableName = null;
+			path = classPath.getAbsolutePath();
+		}
+	}
+	
 	public void restart(String newExecutableName) {
-		try {
-			try (InputStream resourceStream = UpdateHelper.class.getClassLoader().getResourceAsStream("ApplicationRestarter.bin")) {
-				Files.copy(
-						resourceStream,
-						Paths.get(path, "ApplicationRestarter.class"),
-						StandardCopyOption.REPLACE_EXISTING);
+		if (executableName != null) {
+			try {
+				try (InputStream resourceStream = UpdateHelper.class.getClassLoader().getResourceAsStream("ApplicationRestarter.bin")) {
+					Files.copy(
+							resourceStream,
+							Paths.get(path, "ApplicationRestarter.class"),
+							StandardCopyOption.REPLACE_EXISTING);
+				}
+		        String javaHome = System.getProperty("java.home");
+		        String javaBin = javaHome + File.separator + "bin" + File.separator + "java";
+		        List<String> command = new LinkedList<String>();
+		        command.add(javaBin);
+		        command.add("ApplicationRestarter");
+		        command.add(executableName);
+		        if (newExecutableName != null && !newExecutableName.equals(executableName)) {
+		        	command.add(newExecutableName);
+		        }
+		        Runtime.getRuntime().exec(command.toArray(new String[0]), null, new File(path));
+			} catch (IOException e) {
+				uiHelper.error(uiHelper.getMessage("message.errorUpdating"));
+				System.exit(1);
 			}
-	        String javaHome = System.getProperty("java.home");
-	        String javaBin = javaHome + File.separator + "bin" + File.separator + "java";
-	        List<String> command = new LinkedList<String>();
-	        command.add(javaBin);
-	        command.add("ApplicationRestarter");
-	        command.add(executableName);
-	        if (newExecutableName != null && !newExecutableName.equals(executableName)) {
-	        	command.add(newExecutableName);
-	        }
-	        Runtime.getRuntime().exec(command.toArray(new String[0]), null, new File(path));
-		} catch (IOException e) {
-			uiHelper.error(uiHelper.getMessage("message.errorUpdating"));
-			System.exit(1);
+		} else {
+			uiHelper.info(uiHelper.getMessage("message.restartRequired"));
 		}
 		System.exit(0);
 	}
@@ -143,7 +157,7 @@ public class UpdateHelper {
 	}
 	
 	public void checkUpdates(String currentVersion, Runnable callback) {
-		//if (currentVersion != null) {
+		if (currentVersion != null) {
 			String latestVersion = null;
 			List<UpdateAsset> assets = new ArrayList<UpdateAsset>();
 			ObjectMapper objectMapper = new ObjectMapper();
@@ -152,8 +166,8 @@ public class UpdateHelper {
 				latestVersion = latest.get("tag_name").asText().substring(1);
 				latest.get("assets").forEach(asset -> {
 					String assetName = asset.get("name").asText();
-					if (assetsToUpdate == null || assetsToUpdate .isEmpty() ||
-							assetName.matches(assetsToUpdate)) {
+					if (assetsFilter == null || assetsFilter .isEmpty() ||
+							assetName.matches(assetsFilter)) {
 						String assetUrl = asset.get("browser_download_url").asText();
 						int assetSize = asset.get("size").asInt();
 						boolean isArchive = assetName.endsWith(".zip");
@@ -170,7 +184,7 @@ public class UpdateHelper {
 				}, callback);
 				return;
 			}
-		//}
+		}
 		callback.run();
 	}
 }
