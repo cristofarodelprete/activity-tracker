@@ -1,6 +1,7 @@
 package it.priestly.activitytracker.enums;
 
 public enum ConfigKey {
+	checkUpdates(Boolean.class),
 	enableTransparency(Boolean.class),
 	hiddenOpacity(Float.class),
 	fadeDuration(Integer.class),

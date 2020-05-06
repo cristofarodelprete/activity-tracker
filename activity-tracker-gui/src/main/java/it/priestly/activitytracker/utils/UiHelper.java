@@ -5,8 +5,10 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.Arrays;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 
 import javax.swing.JFileChooser;
 import javax.swing.JFrame;
@@ -37,6 +39,15 @@ public class UiHelper {
 	
 	public List<String> getLanguages() {
 		return Arrays.asList(languages);
+	}
+	
+	public Map<String,String> getLanguageOptions() {
+		Map<String,String> languageMap = new LinkedHashMap<>();
+		languageMap.put(null, getMessage("settings.options.language.default"));
+		for (String language : getLanguages()) {
+			languageMap.put(language, getMessage("settings.options.language." + language));
+		}
+		return languageMap;
 	}
 	
 	public void setLocale(String languageTag) {

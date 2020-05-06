@@ -6,8 +6,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.builder.SpringApplicationBuilder;
 import org.springframework.context.ApplicationContext;
 
-import it.priestly.activitytracker.utils.UpdateHelper;
-import it.priestly.activitytracker.windows.MainWindow;
+import it.priestly.activitytracker.utils.StartupHelper;
 
 @SpringBootApplication
 public class Application {
@@ -16,12 +15,7 @@ public class Application {
 		ApplicationContext context = new SpringApplicationBuilder(Application.class)
 				.headless(false).run(args);
 		EventQueue.invokeLater(() -> {
-			UpdateHelper updateHelper = context.getBean(UpdateHelper.class);
-			MainWindow mainWindow = context.getBean(MainWindow.class);
-			String version = Application.class.getPackage().getImplementationVersion();
-			updateHelper.checkUpdates(version, () -> {
-				mainWindow.run();
-			});
+			context.getBean(StartupHelper.class).start();
 		});
 	}
 }

@@ -173,8 +173,12 @@ public class FormWindow extends JDialog {
 		content.add(buildFooter());
 	}
 
-	public FormWindow(String title, String button, Map<String,Field<?>> formFields, Function<Map<String,Field<?>>,Boolean> submit) {
-		super(new JFrame(title));
+	public FormWindow() {
+		super(new JFrame());
+	}
+	
+	public void run(String title, String button, Map<String,Field<?>> formFields, Function<Map<String,Field<?>>,Boolean> submit) {
+		this.setTitle(title);
 		this.formFields = formFields;
 		this.button = button;
 		this.submit = submit;
@@ -184,5 +188,4 @@ public class FormWindow extends JDialog {
 		setResizable(false);
 		setLocationRelativeTo(null);
 	}
-
 }

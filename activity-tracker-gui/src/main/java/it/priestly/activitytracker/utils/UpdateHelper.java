@@ -35,9 +35,11 @@ public class UpdateHelper {
 	@Autowired
     private UiHelper uiHelper;
 	
-	private String executableName;
+	private final String executableName;
 
-	private String path;
+	private final String path;
+	
+	private final String currentVersion;
 	
 	@Value("${application.updateUrl:}")
 	private String updateUrl;
@@ -46,6 +48,7 @@ public class UpdateHelper {
 	private String assetsFilter;
 
 	public UpdateHelper() {
+		currentVersion = UpdateHelper.class.getPackage().getImplementationVersion();
 		File classPath = new File(System.getProperty("java.class.path"));
 		if (classPath.isFile()) {
 			executableName = classPath.getName();
@@ -126,7 +129,7 @@ public class UpdateHelper {
         }
 	}
 	
-	private void update(String version, List<UpdateAsset> assets, Runnable callback) {
+	private void update(String version, List<UpdateAsset> assets) {
 		String newExecutableName = null;
 		int downloaded = 0;
 		int total = assets.stream().reduce(0, (sum, asset) -> sum + asset.size, (a, b) -> a + b);
@@ -156,7 +159,7 @@ public class UpdateHelper {
 		restart(newExecutableName);
 	}
 	
-	public void checkUpdates(String currentVersion, Runnable callback) {
+	public void checkUpdates(Runnable callback) {
 		if (currentVersion != null) {
 			String latestVersion = null;
 			List<UpdateAsset> assets = new ArrayList<UpdateAsset>();
@@ -180,11 +183,15 @@ public class UpdateHelper {
 			if (compareVersions(currentVersion, latestVersion) > 0) {
 				final String version = latestVersion;
 				uiHelper.confirm(uiHelper.getMessage("message.confirmUpdate", currentVersion, latestVersion), () -> {
-					update(version, assets, callback);
+					update(version, assets);
 				}, callback);
 				return;
 			}
 		}
-		callback.run();
+		if (callback != null) callback.run();
+	}
+	
+	public void checkUpdates() {
+		checkUpdates(null);
 	}
 }

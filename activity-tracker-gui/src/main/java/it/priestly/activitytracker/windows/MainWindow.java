@@ -11,11 +11,8 @@ import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.Insets;
 import java.time.Duration;
-import java.util.Arrays;
 import java.util.HashMap;
-import java.util.LinkedHashMap;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 import javax.swing.BorderFactory;
 import javax.swing.Box;
@@ -24,6 +21,7 @@ import javax.swing.JButton;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
@@ -31,13 +29,14 @@ import it.priestly.activitytracker.animations.UpdateButtonAnimation;
 import it.priestly.activitytracker.enums.ConfigKey;
 import it.priestly.activitytracker.objects.Activity;
 import it.priestly.activitytracker.services.ActivityService;
-import it.priestly.activitytracker.services.ConfigurationService;
 import it.priestly.activitytracker.support.FadeMouseListener;
 import it.priestly.activitytracker.support.FrameDragListener;
+import it.priestly.activitytracker.utils.ConfigurationHelper;
 import it.priestly.activitytracker.utils.DelegatedAction;
 import it.priestly.activitytracker.utils.Field;
 import it.priestly.activitytracker.utils.MapUtils;
 import it.priestly.activitytracker.utils.UiHelper;
+import it.priestly.activitytracker.utils.UpdateHelper;
 import it.priestly.activitytracker.utils.WindowCloseListener;
 
 @Component
@@ -46,19 +45,18 @@ public class MainWindow extends JFrame {
 	
 	@Autowired
 	UiHelper uiHelper;
+
+	@Autowired
+	UpdateHelper updateHelper;
 	
 	@Autowired
-	ConfigurationService configurationService;
+	ConfigurationHelper configurationHelper;
 	
 	@Autowired
 	ActivityService activityService;
-	
-	private static final Map<ConfigKey,Object> defaultConfig = MapUtils.asMap(
-			ConfigKey.enableTransparency, Boolean.FALSE,
-			ConfigKey.hiddenOpacity, new Float(0.2f),
-			ConfigKey.fadeDuration, new Integer(250),
-			ConfigKey.alwaysOnTop, Boolean.TRUE
-		);
+
+	@Autowired
+	private SettingsWindow settingsWindow;
 	
 	private JPanel list = null;
 	
@@ -77,16 +75,6 @@ public class MainWindow extends JFrame {
 	private JLabel title = null;
 
 	private String deleteText = null;
-	
-	private SettingsWindow settingsWindow = null;
-	
-	@SuppressWarnings("unchecked")
-	private <T> T getConfig(ConfigKey key) {
-		T value = configurationService.getConfig(key);
-		if (value == null && defaultConfig.containsKey(key))
-			value = (T)defaultConfig.get(key);
-		return value;
-	}
 	
 	private String zpad(int n, int d) {
 		String s = Long.toString(n);
@@ -118,7 +106,7 @@ public class MainWindow extends JFrame {
 		}
 	}
 	
-	private void render() {
+	public void render() {
 		for (UpdateButtonAnimation animation : activityMap.values()) {
 			animation.stop();
 			activityMap.clear();
@@ -209,7 +197,8 @@ public class MainWindow extends JFrame {
 		footer.add(Box.createHorizontalGlue());
 		add = new JButton();
 		add.setAction(new DelegatedAction(e -> {
-			FormWindow form = new FormWindow(
+			FormWindow form = new FormWindow();
+			form.run(
 					uiHelper.getMessage("dialog.title.create"),
 					uiHelper.getMessage("button.label.create.submit"),
 					MapUtils.asMap(
@@ -235,54 +224,7 @@ public class MainWindow extends JFrame {
 		footer.add(add);
 		settings = new JButton();
 		settings.setAction(new DelegatedAction(e -> {
-			if (settingsWindow != null) {
-				settingsWindow.setVisible(true);
-				settingsWindow.toFront();
-				settingsWindow.requestFocus();
-				return;
-			}
-			Map<ConfigKey,Object> config = configurationService.getConfig();
-			for (Map.Entry<ConfigKey,Object> entry : defaultConfig.entrySet()) {
-				if (config.get(entry.getKey()) == null)
-					config.put(entry.getKey(), entry.getValue());
-			}
-			Map<String,String> languageMap = new LinkedHashMap<>();
-			languageMap.put(null, uiHelper.getMessage("settings.options.language.default"));
-			for (String language : uiHelper.getLanguages()) {
-				languageMap.put(language, uiHelper.getMessage("settings.options.language." + language));
-			}
-			settingsWindow = new SettingsWindow(
-					uiHelper.getMessage("dialog.title.settings"),
-					uiHelper.getMessage("button.label.settings.submit"),
-					Arrays.stream(ConfigKey.values()).collect(Collectors.toMap(
-							k -> k,
-							k -> uiHelper.getMessage("settings.label." + k.name())
-					)),
-					config,
-					MapUtils.asMap(ConfigKey.language, languageMap),
-					(cfg) -> {
-						configurationService.setConfig(cfg);
-						updateConfig();
-					},
-					uiHelper.getMessage("button.label.reset"),
-					b -> {
-						uiHelper.confirm(uiHelper.getMessage("message.confirmReset"), () -> {
-							activityService.clearAll();
-							render();
-						});
-					},
-					uiHelper.getMessage("button.label.export"),
-					b -> {
-						byte[] data = activityService.exportAll();
-						uiHelper.saveFile(b, data);
-					}
-			);
-			settingsWindow.build();
-			settingsWindow.pack();
-			settingsWindow.setVisible(true);
-			settingsWindow.addWindowListener(new WindowCloseListener(e2 -> {
-				settingsWindow = null;
-			}));
+			settingsWindow.run(this);
 		}));
 		footer.add(settings);
 		footer.add(Box.createHorizontalGlue());
@@ -305,7 +247,7 @@ public class MainWindow extends JFrame {
 	private void setupWindow() {
 		dispose();
 		uiHelper.setLocale();
-		boolean enableTransparency = getConfig(ConfigKey.enableTransparency);
+		boolean enableTransparency = configurationHelper.get(ConfigKey.enableTransparency);
 		if (enableTransparency) {
 			GraphicsEnvironment ge = GraphicsEnvironment.getLocalGraphicsEnvironment();
 			GraphicsDevice gd = ge.getDefaultScreenDevice();
@@ -315,8 +257,8 @@ public class MainWindow extends JFrame {
 			}
 		}
 		if (enableTransparency) {
-			float hiddenOpacity = getConfig(ConfigKey.hiddenOpacity);
-			int transitionDuration = getConfig(ConfigKey.fadeDuration);
+			float hiddenOpacity = configurationHelper.get(ConfigKey.hiddenOpacity);
+			int transitionDuration = configurationHelper.get(ConfigKey.fadeDuration);
 			if (fadeMouseListener == null) {
 				fadeMouseListener = new FadeMouseListener(this, hiddenOpacity, transitionDuration);
 				addMouseListener(fadeMouseListener);
@@ -342,7 +284,7 @@ public class MainWindow extends JFrame {
 		}
 		setDefaultCloseOperation(DO_NOTHING_ON_CLOSE);
 		setResizable(false);
-		setAlwaysOnTop(getConfig(ConfigKey.alwaysOnTop));
+		setAlwaysOnTop(configurationHelper.get(ConfigKey.alwaysOnTop));
 		setVisible(true);
 	}
 	
@@ -355,7 +297,7 @@ public class MainWindow extends JFrame {
 		settings.setText(uiHelper.getMessage("button.label.settings"));
 	}
 
-	private void updateConfig() {
+	public void updateConfig() {
 		setupWindow();
 		updateLabels();
 		render();
