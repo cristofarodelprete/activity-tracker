@@ -16,7 +16,6 @@
 		<module>activity-tracker-business</module>
 		<module>activity-tracker-interface</module>
 		<module>activity-tracker-windows</module>
-		<module>activity-tracker-exe</module>
 		<module>activity-tracker-utility</module>
 	</modules>
 	<dependencyManagement>
@@ -44,11 +43,6 @@
 			<dependency>
 				<groupId>it.priestly</groupId>
 				<artifactId>activity-tracker-utility</artifactId>
-				<version>${revision}</version>
-			</dependency>
-			<dependency>
-				<groupId>it.priestly</groupId>
-				<artifactId>activity-tracker-exe</artifactId>
 				<version>${revision}</version>
 			</dependency>
 		</dependencies>

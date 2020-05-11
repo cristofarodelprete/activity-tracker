@@ -116,8 +116,6 @@ public class RegistryHelper {
 		}
 		try {
 			Runtime.getRuntime().exec(command);
-		} catch (Exception e) {
-			int i = 0;
-		}
+		} catch (Exception e) { }
 	}
 }

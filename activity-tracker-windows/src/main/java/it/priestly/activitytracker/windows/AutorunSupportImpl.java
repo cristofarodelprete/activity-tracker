@@ -20,7 +20,7 @@ public class AutorunSupportImpl implements PlatformSupport<Boolean> {
 	
 	@Override
 	public boolean isSupported() {
-		return Constants.debugMode || Constants.isWindows && Constants.executablePath != null;
+		return Constants.isWindows && Constants.executablePath != null;
 	}
 
 	@Override
@@ -30,12 +30,11 @@ public class AutorunSupportImpl implements PlatformSupport<Boolean> {
 
 	@Override
 	public Boolean get() {
-		String executablePath = Constants.debugMode ? "D:\\Desktop\\ActivityTracker.exe" : Constants.executablePath;
 		try {
 			String currentPath = registryHelper.read(
 					"HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run",
 			        "ActivityTracker");
-			return currentPath != null && !currentPath.isEmpty() && currentPath.equals(executablePath);
+			return currentPath != null && !currentPath.isEmpty() && currentPath.equals(Constants.executablePath);
 		} catch (Exception ex) {
 			return null;
 		}
@@ -43,18 +42,17 @@ public class AutorunSupportImpl implements PlatformSupport<Boolean> {
 
 	@Override
 	public void set(Boolean value) {
-		String executablePath = Constants.debugMode ? "D:\\Desktop\\ActivityTracker.exe" : Constants.executablePath;
 		try {
 			if (value) {
 				registryHelper.write(
 						"HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run",
 						"ActivityTracker",
-						executablePath);
+						Constants.executablePath);
 			} else {
 				String currentPath = registryHelper.read(
 						"HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run",
 				        "ActivityTracker");
-				if (currentPath != null && !currentPath.isEmpty() && currentPath.equals(executablePath)) {
+				if (currentPath != null && !currentPath.isEmpty() && currentPath.equals(Constants.executablePath)) {
 					registryHelper.write(
 							"HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run",
 							"ActivityTracker",
