@@ -1,4 +1,4 @@
-package it.priestly.activitytracker.utils;
+package it.priestly.activitytracker.support;
 
 public class UpdateAsset {
 	public final String name;

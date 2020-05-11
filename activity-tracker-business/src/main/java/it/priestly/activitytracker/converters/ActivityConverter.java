@@ -3,12 +3,11 @@ package it.priestly.activitytracker.converters;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
-
 @Component
 public class ActivityConverter extends EntityConverter<it.priestly.activitytracker.objects.Activity, it.priestly.activitytracker.models.Activity> {
 
 	@Autowired
-	AllocationConverter allocationConverter;
+	private AllocationConverter allocationConverter;
 	
 	public ActivityConverter() {
 		super(it.priestly.activitytracker.objects.Activity.class, it.priestly.activitytracker.models.Activity.class);

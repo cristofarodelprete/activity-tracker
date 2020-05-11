@@ -4,26 +4,25 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import it.priestly.activitytracker.enums.ConfigKey;
-import it.priestly.activitytracker.windows.MainWindow;
+import it.priestly.activitytracker.support.UiHelper;
 
 @Component
 public class StartupHelper {
 
 	@Autowired
-	private UpdateHelper updateHelper;
+	private ApplicationUpdater applicationUpdater;
 	
 	@Autowired
 	private ConfigurationHelper configurationHelper;
-	
+
 	@Autowired
-	private MainWindow mainWindow;
+	private UiHelper uiHelper;
 	
 	public void start() {
 		boolean checkUpdates = configurationHelper.get(ConfigKey.checkUpdates);
 		if (checkUpdates) {
-			updateHelper.checkUpdates(mainWindow::run);
-		} else {
-			mainWindow.run();
+			applicationUpdater.checkUpdates(true);
 		}
+		uiHelper.run();
 	}
 }

@@ -168,6 +168,8 @@ public class FormWindow extends JDialog {
 	
 	public void build() {
 		Container content = getContentPane();
+		content.removeAll();
+		content.repaint();
 		content.setLayout(new BoxLayout(content, BoxLayout.PAGE_AXIS));
 		content.add(buildContent());
 		content.add(buildFooter());

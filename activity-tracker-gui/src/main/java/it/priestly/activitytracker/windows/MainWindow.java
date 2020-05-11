@@ -4,9 +4,6 @@ import java.awt.Color;
 import java.awt.Container;
 import java.awt.Dimension;
 import java.awt.Font;
-import java.awt.GraphicsDevice;
-import java.awt.GraphicsDevice.WindowTranslucency;
-import java.awt.GraphicsEnvironment;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.Insets;
@@ -31,12 +28,12 @@ import it.priestly.activitytracker.objects.Activity;
 import it.priestly.activitytracker.services.ActivityService;
 import it.priestly.activitytracker.support.FadeMouseListener;
 import it.priestly.activitytracker.support.FrameDragListener;
+import it.priestly.activitytracker.support.UiHelper;
 import it.priestly.activitytracker.utils.ConfigurationHelper;
 import it.priestly.activitytracker.utils.DelegatedAction;
 import it.priestly.activitytracker.utils.Field;
+import it.priestly.activitytracker.utils.GuiConstants;
 import it.priestly.activitytracker.utils.MapUtils;
-import it.priestly.activitytracker.utils.UiHelper;
-import it.priestly.activitytracker.utils.UpdateHelper;
 import it.priestly.activitytracker.utils.WindowCloseListener;
 
 @Component
@@ -44,16 +41,13 @@ public class MainWindow extends JFrame {
 	private static final long serialVersionUID = -150759974554189358L;
 	
 	@Autowired
-	UiHelper uiHelper;
+	private UiHelper uiHelper;
 
 	@Autowired
-	UpdateHelper updateHelper;
+	private ConfigurationHelper configurationHelper;
 	
 	@Autowired
-	ConfigurationHelper configurationHelper;
-	
-	@Autowired
-	ActivityService activityService;
+	private ActivityService activityService;
 
 	@Autowired
 	private SettingsWindow settingsWindow;
@@ -248,15 +242,7 @@ public class MainWindow extends JFrame {
 		dispose();
 		uiHelper.setLocale();
 		boolean enableTransparency = configurationHelper.get(ConfigKey.enableTransparency);
-		if (enableTransparency) {
-			GraphicsEnvironment ge = GraphicsEnvironment.getLocalGraphicsEnvironment();
-			GraphicsDevice gd = ge.getDefaultScreenDevice();
-			if (!gd.isWindowTranslucencySupported(WindowTranslucency.TRANSLUCENT)) {
-				uiHelper.error("Translucency is not supported");
-				enableTransparency = false;
-			}
-		}
-		if (enableTransparency) {
+		if (enableTransparency && GuiConstants.transparencySupported) {
 			float hiddenOpacity = configurationHelper.get(ConfigKey.hiddenOpacity);
 			int transitionDuration = configurationHelper.get(ConfigKey.fadeDuration);
 			if (fadeMouseListener == null) {

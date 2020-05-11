@@ -1,6 +1,6 @@
 package it.priestly.activitytracker.services;
 
-import java.util.LinkedHashMap;
+import java.util.EnumMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -60,7 +60,7 @@ public class ConfigurationServiceImpl implements ConfigurationService {
 
 	@Override
 	public Map<ConfigKey, Object> getConfig() {
-		Map<ConfigKey, Object> map = new LinkedHashMap<>();
+		Map<ConfigKey, Object> map = new EnumMap<>(ConfigKey.class);
 		for (Config config : configRepository.findAll()) {
 			ConfigKey key = Enum.valueOf(ConfigKey.class, config.getKey());
 			map.put(key, conversionService.convert(config.getValue(), key.type()));

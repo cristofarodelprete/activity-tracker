@@ -13,8 +13,6 @@ import java.util.List;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
-import javax.swing.ProgressMonitor;
-
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.beans.factory.config.ConfigurableBeanFactory;
@@ -26,20 +24,18 @@ import org.springframework.stereotype.Component;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+import it.priestly.activitytracker.support.UiHelper;
+import it.priestly.activitytracker.support.UpdateAsset;
+import it.priestly.activitytracker.support.UpdateMonitor;
+
 @Component
 @Configuration
 @Scope(ConfigurableBeanFactory.SCOPE_SINGLETON)
-@PropertySource("classpath:update.properties")
-public class UpdateHelper {
+@PropertySource(value = "classpath*:update.properties", ignoreResourceNotFound = true)
+public class ApplicationUpdater {
 	
 	@Autowired
     private UiHelper uiHelper;
-	
-	private final String executableName;
-
-	private final String path;
-	
-	private final String currentVersion;
 	
 	@Value("${application.updateUrl:}")
 	private String updateUrl;
@@ -47,45 +43,30 @@ public class UpdateHelper {
 	@Value("${application.assetsFilter:}")
 	private String assetsFilter;
 
-	public UpdateHelper() {
-		currentVersion = UpdateHelper.class.getPackage().getImplementationVersion();
-		File classPath = new File(System.getProperty("java.class.path"));
-		if (classPath.isFile()) {
-			executableName = classPath.getName();
-			path = new File(classPath.getParent()).getAbsolutePath();
-		} else {
-			executableName = null;
-			path = classPath.getAbsolutePath();
-		}
-	}
-	
 	public void restart(String newExecutableName) {
-		if (executableName != null) {
+		if (Constants.executableName != null) {
 			try {
-				try (InputStream resourceStream = UpdateHelper.class.getClassLoader().getResourceAsStream("ApplicationRestarter.bin")) {
+				try (InputStream resourceStream = ApplicationUpdater.class.getClassLoader().getResourceAsStream("ApplicationRestarter.bin")) {
 					Files.copy(
 							resourceStream,
-							Paths.get(path, "ApplicationRestarter.class"),
+							Paths.get(Constants.installationPath, "ApplicationRestarter.class"),
 							StandardCopyOption.REPLACE_EXISTING);
 				}
-		        String javaHome = System.getProperty("java.home");
-		        String javaBin = javaHome + File.separator + "bin" + File.separator + "java";
 		        List<String> command = new LinkedList<String>();
-		        command.add(javaBin);
+		        command.add(Constants.javaBin);
 		        command.add("ApplicationRestarter");
-		        command.add(executableName);
-		        if (newExecutableName != null && !newExecutableName.equals(executableName)) {
+		        command.add(Constants.executableName);
+		        if (newExecutableName != null && !newExecutableName.equals(Constants.executableName)) {
 		        	command.add(newExecutableName);
 		        }
-		        Runtime.getRuntime().exec(command.toArray(new String[0]), null, new File(path));
-			} catch (IOException e) {
-				uiHelper.error(uiHelper.getMessage("message.errorUpdating"));
-				System.exit(1);
+		        Runtime.getRuntime().exec(command.toArray(new String[0]), null, new File(Constants.installationPath));
+		        uiHelper.exit();
+			} catch (Exception e) {
+				uiHelper.error(uiHelper.getMessage("message.errorUpdating"), uiHelper::die);
 			}
 		} else {
-			uiHelper.info(uiHelper.getMessage("message.restartRequired"));
+			uiHelper.info(uiHelper.getMessage("message.restartRequired"), uiHelper::exit);
 		}
-		System.exit(0);
 	}
 	
 	private int compareVersions(String a, String b) {
@@ -131,36 +112,34 @@ public class UpdateHelper {
 	
 	private void update(String version, List<UpdateAsset> assets) {
 		String newExecutableName = null;
-		int downloaded = 0;
-		int total = assets.stream().reduce(0, (sum, asset) -> sum + asset.size, (a, b) -> a + b);
-		ProgressMonitor progressMonitor = new ProgressMonitor(null, uiHelper.getMessage("dialog.title.updating", version), null, 0, total);
-        progressMonitor.setMillisToDecideToPopup(100);
-        progressMonitor.setMillisToPopup(100);
+		UpdateMonitor updateMonitor = uiHelper.createUpdateMonitor(version, assets);
 		for (UpdateAsset asset : assets) {
-			progressMonitor.setNote(uiHelper.getMessage("update.label.downloading", asset.name));
-			try (MonitoredInputStream inputStream = new MonitoredInputStream(progressMonitor, downloaded, new URL(asset.url).openStream())) {
+			updateMonitor.setActiveAsset(asset);
+			try (UpdateInputStream inputStream = new UpdateInputStream(updateMonitor, asset)) {
 				String assetName = asset.name;
-				if (assetName.equals(executableName)) {
+				if (assetName.equals(Constants.executableName)) {
 					assetName = assetName + ".new";
 					newExecutableName = assetName;
 				}
 				if (asset.archive) {
-					unzip(path, inputStream);
+					unzip(Constants.installationPath, inputStream);
 				} else {
-					Files.copy(inputStream, Paths.get(path, assetName), StandardCopyOption.REPLACE_EXISTING);
+					Files.copy(inputStream, Paths.get(Constants.installationPath, assetName), StandardCopyOption.REPLACE_EXISTING);
 				}
-				downloaded += asset.size;
 			} catch (Exception e) {
-				uiHelper.error(uiHelper.getMessage("message.errorUpdating"));
-				System.exit(1);
+				uiHelper.error(uiHelper.getMessage("message.errorUpdating"), uiHelper::die);
 			};
+			updateMonitor.unsetActiveAsset();
 		}
-		uiHelper.info(uiHelper.getMessage("message.updated", version));
-		restart(newExecutableName);
+		final String toRun = newExecutableName; 
+		uiHelper.info(uiHelper.getMessage("message.updated", version), () -> {
+			restart(toRun);
+		});
+		
 	}
 	
-	public void checkUpdates(Runnable callback) {
-		if (currentVersion != null) {
+	public void checkUpdates(boolean silent) {
+		if (Constants.currentVersion != null && updateUrl != null && !updateUrl.isEmpty()) {
 			String latestVersion = null;
 			List<UpdateAsset> assets = new ArrayList<UpdateAsset>();
 			ObjectMapper objectMapper = new ObjectMapper();
@@ -179,19 +158,19 @@ public class UpdateHelper {
 				});
 			} catch (Exception e) {
 				latestVersion = null;
+				if (!silent) uiHelper.error(uiHelper.getMessage("message.errorCheckingUpdates"));
+				return;
 			}
-			if (compareVersions(currentVersion, latestVersion) > 0) {
+			if (compareVersions(Constants.currentVersion, latestVersion) > 0) {
 				final String version = latestVersion;
-				uiHelper.confirm(uiHelper.getMessage("message.confirmUpdate", currentVersion, latestVersion), () -> {
-					update(version, assets);
-				}, callback);
+				uiHelper.confirm(uiHelper.getMessage(
+						"message.confirmUpdate", Constants.currentVersion, latestVersion
+						), () -> {
+							update(version, assets);
+						});
 				return;
 			}
 		}
-		if (callback != null) callback.run();
-	}
-	
-	public void checkUpdates() {
-		checkUpdates(null);
+		if (!silent) uiHelper.info(uiHelper.getMessage("message.noUpdates"));
 	}
 }

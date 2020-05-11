@@ -2,22 +2,21 @@ package it.priestly.activitytracker.utils;
 
 import java.io.FilterInputStream;
 import java.io.IOException;
-import java.io.InputStream;
+import java.net.URL;
 import java.util.concurrent.CancellationException;
 
-import javax.swing.ProgressMonitor;
+import it.priestly.activitytracker.support.UpdateAsset;
+import it.priestly.activitytracker.support.UpdateMonitor;
 
-public class MonitoredInputStream extends FilterInputStream {
+public class UpdateInputStream extends FilterInputStream {
 	
-	private int nread = 0;
+	private UpdateAsset asset;
 	
-	private int startAt;
+	private UpdateMonitor monitor;
 	
-	private ProgressMonitor monitor;
-	
-	public MonitoredInputStream(ProgressMonitor monitor, int startAt, InputStream in) {
-		super(in);
-		this.startAt = startAt;
+	public UpdateInputStream(UpdateMonitor monitor, UpdateAsset asset) throws IOException {
+		super(new URL(asset.url).openStream());
+		this.asset = asset;
 		this.monitor = monitor;
 	}
 	
@@ -25,7 +24,7 @@ public class MonitoredInputStream extends FilterInputStream {
 	public int read() throws IOException {
 		if (monitor.isCanceled()) throw new CancellationException();
 		int c = in.read();
-		if (c >= 0) monitor.setProgress(startAt + (++nread));
+		if (c >= 0) monitor.update(asset, 1);
 		return c;
 	}
 
@@ -33,7 +32,7 @@ public class MonitoredInputStream extends FilterInputStream {
 	public int read(byte[] b) throws IOException {
 		if (monitor.isCanceled()) throw new CancellationException();
 		int nr = in.read(b);
-		if (nr > 0) monitor.setProgress(startAt + (nread += nr));
+		if (nr > 0) monitor.update(asset, nr);
 		return nr;
 	}
 
@@ -41,14 +40,14 @@ public class MonitoredInputStream extends FilterInputStream {
 	public int read(byte[] b, int off, int len) throws IOException {
 		if (monitor.isCanceled()) throw new CancellationException();
 		int nr = in.read(b, off, len);
-		if (nr > 0) monitor.setProgress(startAt + (nread += nr));
+		if (nr > 0) monitor.update(asset, nr);
 		return nr;
 	}
 
 	@Override
 	public long skip(long n) throws IOException {
 		long nr = in.skip(n);
-		if (nr > 0) monitor.setProgress(startAt + (nread += nr));
+		if (nr > 0) monitor.update(asset, nr);
 		return nr;
 	}
 }
