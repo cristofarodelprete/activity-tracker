@@ -27,7 +27,6 @@ import org.springframework.core.io.support.PathMatchingResourcePatternResolver;
 import org.springframework.stereotype.Component;
 
 import it.priestly.activitytracker.enums.ConfigKey;
-import it.priestly.activitytracker.services.ConfigurationService;
 import it.priestly.activitytracker.support.UiHelper;
 import it.priestly.activitytracker.support.UpdateAsset;
 import it.priestly.activitytracker.support.UpdateMonitor;
@@ -42,7 +41,7 @@ public class UiHelperImpl implements UiHelper {
 	private Locale locale;
 	
 	@Autowired
-	private ConfigurationService configurationService;
+	private ConfigurationHelper configurationHelper;
 	
 	@Autowired
     private MessageSource messageSource;
@@ -92,7 +91,7 @@ public class UiHelperImpl implements UiHelper {
 	}
 
 	public void setLocale() {
-		String languageTag = configurationService.getConfig(ConfigKey.language);
+		String languageTag = configurationHelper.get(ConfigKey.language);
 		if (languageTag != null) {
 			setLocale(languageTag);
 		} else {

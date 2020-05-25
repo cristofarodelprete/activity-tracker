@@ -6,7 +6,8 @@ public enum ConfigKey {
 	hiddenOpacity(Float.class),
 	fadeDuration(Integer.class),
 	language,
-	alwaysOnTop(Boolean.class);
+	alwaysOnTop(Boolean.class),
+	autorun(Boolean.class);
 	
 	private final Class<?> type;
 	

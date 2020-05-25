@@ -1,35 +1,25 @@
 package it.priestly.activitytracker.windows;
 
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Component;
+import java.util.HashSet;
+import java.util.Set;
 
-import it.priestly.activitytracker.enums.PlatformKey;
-import it.priestly.activitytracker.support.PlatformSupport;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+import it.priestly.activitytracker.enums.ConfigKey;
+import it.priestly.activitytracker.services.ConfigurationService;
+import it.priestly.activitytracker.support.SupportCheck;
 import it.priestly.activitytracker.utils.Constants;
 
-@Component
-public class AutorunSupportImpl implements PlatformSupport<Boolean> {
+@Service
+public class AutorunSupportImpl implements ConfigurationService, SupportCheck {
+
+	private static final ConfigKey[] supportedKeys = new ConfigKey[] { ConfigKey.autorun };
 	
 	@Autowired
 	private RegistryHelper registryHelper;
 	
-	@Override
-	public Class<Boolean> getType() {
-		return Boolean.class;
-	}
-	
-	@Override
-	public boolean isSupported() {
-		return Constants.isWindows && Constants.executablePath != null;
-	}
-
-	@Override
-	public PlatformKey getKey() {
-		return PlatformKey.autorun;
-	}
-
-	@Override
-	public Boolean get() {
+	private Boolean getAutorun() {
 		try {
 			String currentPath = registryHelper.read(
 					"HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run",
@@ -40,8 +30,7 @@ public class AutorunSupportImpl implements PlatformSupport<Boolean> {
 		}
 	}
 
-	@Override
-	public void set(Boolean value) {
+	private void setAutorun(Boolean value) {
 		try {
 			if (value) {
 				registryHelper.write(
@@ -61,6 +50,52 @@ public class AutorunSupportImpl implements PlatformSupport<Boolean> {
 			}
 		} catch (Exception ex) {
 			
+		}
+	}
+	
+	@Override
+	public boolean isSupported(ConfigKey key) {
+		switch (key) {
+			case autorun:
+				return Constants.isWindows;
+			default:
+				return true;
+		}
+	}
+	
+	@Override
+	public Set<ConfigKey> unsupportedKeys() {
+		Set<ConfigKey> keys = new HashSet<ConfigKey>();
+		if (!Constants.isWindows) {
+			keys.add(ConfigKey.autorun);
+		}
+		return keys;
+	}
+
+	@Override
+	public ConfigKey[] getSupportedKeys() {
+		return supportedKeys;
+	}
+
+	@Override
+	@SuppressWarnings("unchecked")
+	public <T> T getConfig(ConfigKey key, T defaultValue) {
+		switch (key) {
+			case autorun:
+				return (T)getAutorun();
+			default:
+				return defaultValue;
+		}
+	}
+
+	@Override
+	public <T> void setConfig(ConfigKey key, T value) {
+		switch (key) {
+			case autorun:
+				setAutorun((Boolean)value);
+				break;
+			default:
+				break;
 		}
 	}
 }

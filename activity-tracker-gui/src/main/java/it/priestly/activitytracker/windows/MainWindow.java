@@ -32,8 +32,7 @@ import it.priestly.activitytracker.support.UiHelper;
 import it.priestly.activitytracker.utils.ConfigurationHelper;
 import it.priestly.activitytracker.utils.DelegatedAction;
 import it.priestly.activitytracker.utils.Field;
-import it.priestly.activitytracker.utils.GuiConstants;
-import it.priestly.activitytracker.utils.MapUtils;
+import it.priestly.activitytracker.utils.GuiUtils;
 import it.priestly.activitytracker.utils.WindowCloseListener;
 
 @Component
@@ -51,6 +50,9 @@ public class MainWindow extends JFrame {
 
 	@Autowired
 	private SettingsWindow settingsWindow;
+	
+	@Autowired
+	private GuiUtils guiUtils;
 	
 	private JPanel list = null;
 	
@@ -192,12 +194,12 @@ public class MainWindow extends JFrame {
 		add = new JButton();
 		add.setAction(new DelegatedAction(e -> {
 			FormWindow form = new FormWindow();
+			Map<String,Field<?>> fields = new HashMap<String,Field<?>>();
+			fields.put("attivita", new Field<String>(String.class, uiHelper.getMessage("field.label.attivita")));
 			form.run(
 					uiHelper.getMessage("dialog.title.create"),
 					uiHelper.getMessage("button.label.create.submit"),
-					MapUtils.asMap(
-						"attivita", new Field<String>(String.class, uiHelper.getMessage("field.label.attivita"))
-					),
+					fields,
 					(map) -> {
 						String activityName = (String)map.get("attivita").getValue();
 						if (activityName != null && !activityName.isEmpty() &&
@@ -241,8 +243,8 @@ public class MainWindow extends JFrame {
 	private void setupWindow() {
 		dispose();
 		uiHelper.setLocale();
-		boolean enableTransparency = configurationHelper.get(ConfigKey.enableTransparency);
-		if (enableTransparency && GuiConstants.transparencySupported) {
+		Boolean enableTransparency = configurationHelper.get(ConfigKey.enableTransparency);
+		if (enableTransparency != null && enableTransparency && guiUtils.isTransparencySupported()) {
 			float hiddenOpacity = configurationHelper.get(ConfigKey.hiddenOpacity);
 			int transitionDuration = configurationHelper.get(ConfigKey.fadeDuration);
 			if (fadeMouseListener == null) {

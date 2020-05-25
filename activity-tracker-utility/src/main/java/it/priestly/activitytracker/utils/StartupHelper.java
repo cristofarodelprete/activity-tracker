@@ -19,8 +19,8 @@ public class StartupHelper {
 	private UiHelper uiHelper;
 	
 	public void start() {
-		boolean checkUpdates = configurationHelper.get(ConfigKey.checkUpdates);
-		if (checkUpdates) {
+		Boolean checkUpdates = configurationHelper.get(ConfigKey.checkUpdates);
+		if (checkUpdates != null && checkUpdates) {
 			applicationUpdater.checkUpdates(true);
 		}
 		uiHelper.run();

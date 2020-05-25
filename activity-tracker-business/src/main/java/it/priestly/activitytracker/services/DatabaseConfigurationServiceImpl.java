@@ -17,7 +17,12 @@ import it.priestly.activitytracker.repositories.ConfigRepository;
 import it.priestly.activitytracker.services.ConfigurationService;
 
 @Service
-public class ConfigurationServiceImpl implements ConfigurationService {
+public class DatabaseConfigurationServiceImpl implements ConfigurationService {
+	
+	private static final ConfigKey[] supportedKeys = new ConfigKey[] {
+			ConfigKey.checkUpdates, ConfigKey.enableTransparency, ConfigKey.hiddenOpacity,
+			ConfigKey.fadeDuration, ConfigKey.language, ConfigKey.alwaysOnTop
+	};
 	
 	@Autowired
 	private ConfigRepository configRepository;
@@ -26,8 +31,8 @@ public class ConfigurationServiceImpl implements ConfigurationService {
 	private ConversionService conversionService;
 	
 	@Override
-	public <T> T getConfig(ConfigKey key) {
-		return getConfig(key, null);
+	public ConfigKey[] getSupportedKeys() {
+		return supportedKeys;
 	}
 	
 	@Override

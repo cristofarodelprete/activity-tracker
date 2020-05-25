@@ -1,9 +1,7 @@
 package it.priestly.activitytracker.windows;
 
 import java.util.EnumMap;
-import java.util.HashSet;
 import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -15,16 +13,12 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import it.priestly.activitytracker.enums.ConfigKey;
-import it.priestly.activitytracker.enums.PlatformKey;
 import it.priestly.activitytracker.services.ActivityService;
-import it.priestly.activitytracker.support.PlatformSupport;
 import it.priestly.activitytracker.support.UiHelper;
 import it.priestly.activitytracker.utils.ConfigurationHelper;
 import it.priestly.activitytracker.utils.Constants;
 import it.priestly.activitytracker.utils.DelegatedAction;
 import it.priestly.activitytracker.utils.Field;
-import it.priestly.activitytracker.utils.GuiConstants;
-import it.priestly.activitytracker.utils.MapUtils;
 import it.priestly.activitytracker.utils.ApplicationUpdater;
 import it.priestly.activitytracker.utils.WindowCloseListener;
 
@@ -32,10 +26,6 @@ import it.priestly.activitytracker.utils.WindowCloseListener;
 public class SettingsWindow extends FormWindow {
 	private static final long serialVersionUID = -3540267461075177457L;
 	
-	private static final String configKeyPrefix = "cfg";
-	
-	private static final String platformKeyPrefix = "ptf";
-
 	@Autowired
 	private UiHelper uiHelper;
 	
@@ -47,9 +37,6 @@ public class SettingsWindow extends FormWindow {
 	
 	@Autowired
 	private ActivityService activityService;
-	
-	@Autowired(required = false)
-	private List<PlatformSupport<?>> platformSupport;
 	
 	private boolean shown = false;
 	
@@ -93,45 +80,15 @@ public class SettingsWindow extends FormWindow {
 	}
 	
 	private boolean submit(Map<String,Field<?>> map) {
-		Map<ConfigKey,Object> toSubmitConfig = new EnumMap<>(ConfigKey.class);
-		Map<PlatformKey,Object> toSubmitPlatform = new EnumMap<>(PlatformKey.class);
+		Map<ConfigKey,Object> toSubmit = new EnumMap<>(ConfigKey.class);
 		for (Map.Entry<String,Field<?>> entry : map.entrySet()) {
-			if (entry.getKey().startsWith(configKeyPrefix + ":")) {
-				ConfigKey key = Enum.valueOf(
-						ConfigKey.class,
-						entry.getKey().substring(configKeyPrefix.length() + 1));
-				toSubmitConfig.put(key, entry.getValue().getValue());
-			} else if (entry.getKey().startsWith(platformKeyPrefix + ":")) {
-				PlatformKey key = Enum.valueOf(
-						PlatformKey.class,
-						entry.getKey().substring(configKeyPrefix.length() + 1));
-				toSubmitPlatform.put(key, entry.getValue().getValue());
-			}
+			toSubmit.put(
+					Enum.valueOf(ConfigKey.class, entry.getKey()),
+					entry.getValue().getValue());
 		}
-		configurationHelper.set(toSubmitConfig);
-		for (PlatformSupport<?> ps : platformSupport) {
-			@SuppressWarnings("unchecked")
-			PlatformSupport<Object> pso = (PlatformSupport<Object>)ps;
-			if (ps.isSupported()) {
-				PlatformKey key = ps.getKey();
-				if (toSubmitPlatform.containsKey(key)) {
-					pso.set(toSubmitPlatform.get(key));
-				}
-			}
-		}
+		configurationHelper.set(toSubmit);
 		if (parent != null) parent.updateConfig();
 		return true;
-	}
-	
-	private boolean isSettingSupported(ConfigKey key) {
-		switch (key) {
-			case enableTransparency:
-				return GuiConstants.transparencySupported;
-			case checkUpdates:
-				return Constants.executableName != null;
-			default:
-				return true;
-		}
 	}
 	
 	public void run(MainWindow parent) {
@@ -143,39 +100,19 @@ public class SettingsWindow extends FormWindow {
 		}
 		this.parent = parent;
 		Map<ConfigKey,Object> config = configurationHelper.get();
-		Map<ConfigKey,Map<Object,String>> configOptions = new EnumMap<>(ConfigKey.class);
-		configOptions.put(ConfigKey.language, new LinkedHashMap<Object,String>(uiHelper.getLanguageOptions()));
-		Map<PlatformKey,Map<Object,String>> platformOptions = MapUtils.asMap();
+		Map<ConfigKey,Map<Object,String>> options = new EnumMap<>(ConfigKey.class);
+		options.put(ConfigKey.language, new LinkedHashMap<Object,String>(uiHelper.getLanguageOptions()));
 		Map<String,Field<?>> fieldMap = new LinkedHashMap<>();
-		for (ConfigKey key : ConfigKey.values()) {
-			if (!isSettingSupported(key)) continue;
+		Set<ConfigKey> keys = configurationHelper.getKeys();
+		for (ConfigKey key : keys) {
 			@SuppressWarnings({ "unchecked", "rawtypes" })
 			Field<?> field = new Field(
 					key.type(),
-					uiHelper.getMessage("settings.label.config." + key.name()),
-					configOptions.get(key),
+					uiHelper.getMessage("settings.label." + key.name()),
+					options.get(key),
 					config.get(key)
 			);
-			fieldMap.put(configKeyPrefix + ":" + key.name(), field);
-		}
-		Set<PlatformKey> addedPlatformKeys = new HashSet<>();
-		if (platformSupport != null) {
-			for (PlatformSupport<?> ps : platformSupport) {
-				if (ps.isSupported()) {
-					PlatformKey key = ps.getKey();
-					if (!addedPlatformKeys.contains(key)) {
-						addedPlatformKeys.add(key);
-						@SuppressWarnings({ "unchecked", "rawtypes" })
-						Field<?> field = new Field(
-								key.type(),
-								uiHelper.getMessage("settings.label.platform." + key.name()),
-								platformOptions.get(key),
-								ps.get()
-						);
-						fieldMap.put(platformKeyPrefix + ":" + key.name(), field);
-					}
-				}
-			}
+			fieldMap.put(key.name(), field);
 		}
 		fieldMap = fieldMap.entrySet().stream()
 				.sorted(Map.Entry.comparingByKey())

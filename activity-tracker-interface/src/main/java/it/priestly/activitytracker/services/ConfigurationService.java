@@ -1,19 +1,34 @@
 package it.priestly.activitytracker.services;
 
+import java.util.EnumMap;
 import java.util.Map;
 
 import it.priestly.activitytracker.enums.ConfigKey;
 
 public interface ConfigurationService {
 
-	<T> T getConfig(ConfigKey key);
+	ConfigKey[] getSupportedKeys();
+	
+	default <T> T getConfig(ConfigKey key) {
+		return getConfig(key, null);
+	}
 	
 	<T> T getConfig(ConfigKey key, T defaultValue);
 	
 	<T> void setConfig(ConfigKey key, T value);
 	
-	Map<ConfigKey, Object> getConfig();
+	default Map<ConfigKey, Object> getConfig() {
+		Map<ConfigKey, Object> map = new EnumMap<ConfigKey, Object>(ConfigKey.class);
+		for (ConfigKey key : getSupportedKeys()) {
+			map.put(key, getConfig(key));
+		}
+		return map;
+	}
 	
-	void setConfig(Map<ConfigKey, Object> map);
+	default void setConfig(Map<ConfigKey, Object> map) {
+		for (Map.Entry<ConfigKey, Object> entry : map.entrySet()) {
+			setConfig(entry.getKey(), entry.getValue());
+		}
+	}
 	
 }

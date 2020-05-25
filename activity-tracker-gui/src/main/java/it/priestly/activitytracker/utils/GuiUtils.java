@@ -2,14 +2,16 @@ package it.priestly.activitytracker.utils;
 
 import java.awt.GraphicsDevice;
 import java.awt.GraphicsEnvironment;
+
+import org.springframework.stereotype.Component;
+
 import java.awt.GraphicsDevice.WindowTranslucency;
 
-public abstract class GuiConstants {
-	public static final boolean transparencySupported;
-	
-	static {
+@Component
+public class GuiUtils {
+	public boolean isTransparencySupported() {
 		GraphicsEnvironment ge = GraphicsEnvironment.getLocalGraphicsEnvironment();
 		GraphicsDevice gd = ge.getDefaultScreenDevice();
-		transparencySupported = gd.isWindowTranslucencySupported(WindowTranslucency.TRANSLUCENT);
+		return gd.isWindowTranslucencySupported(WindowTranslucency.TRANSLUCENT);
 	}
 }
