@@ -1,7 +1,9 @@
 package it.priestly.activitytracker.windows;
 
+import java.util.Arrays;
 import java.util.EnumMap;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -102,6 +104,18 @@ public class SettingsWindow extends FormWindow {
 		Map<ConfigKey,Object> config = configurationHelper.get();
 		Map<ConfigKey,Map<Object,String>> options = new EnumMap<>(ConfigKey.class);
 		options.put(ConfigKey.language, new LinkedHashMap<Object,String>(uiHelper.getLanguageOptions()));
+		for (ConfigKey key : ConfigKey.values()) {
+			if (key.type().isEnum()) {
+				Map<Object,String> map = new LinkedHashMap<Object,String>();
+				for (Object enumObj : key.type().getEnumConstants()) {
+					String enumName = ((Enum<?>)enumObj).name();
+					map.put(enumName, uiHelper.getMessage("settings.options." + key.name() + "." + enumName));
+				}
+				if (!options.containsKey(key)) {
+					options.put(key, map);
+				}
+			}
+		}
 		Map<String,Field<?>> fieldMap = new LinkedHashMap<>();
 		Set<ConfigKey> keys = configurationHelper.getKeys();
 		for (ConfigKey key : keys) {
