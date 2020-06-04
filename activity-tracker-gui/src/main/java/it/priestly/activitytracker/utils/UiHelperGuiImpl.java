@@ -34,7 +34,7 @@ import it.priestly.activitytracker.windows.MainWindow;
 
 @Component
 @Scope(ConfigurableBeanFactory.SCOPE_SINGLETON)
-public class UiHelperImpl implements UiHelper {
+public class UiHelperGuiImpl implements UiHelper {
 
 	private static final String[] languages;
 	
@@ -64,7 +64,7 @@ public class UiHelperImpl implements UiHelper {
 		languages = tags.toArray(new String[0]);
 	}
 	
-	public UiHelperImpl() {
+	public UiHelperGuiImpl() {
 		locale = Locale.getDefault();
 	}
 	

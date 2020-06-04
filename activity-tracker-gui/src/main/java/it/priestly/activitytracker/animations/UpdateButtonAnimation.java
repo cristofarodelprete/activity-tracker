@@ -1,22 +1,29 @@
 package it.priestly.activitytracker.animations;
 
+import java.util.Map;
 import java.util.Optional;
-import java.util.function.Function;
+import java.util.function.Consumer;
 
 import javax.swing.JButton;
 
 import it.priestly.activitytracker.objects.Activity;
 
-public class UpdateButtonAnimation extends Animation<String> {
+public class UpdateButtonAnimation extends Animation<Map<JButton,Activity>> {
 	
 	private static final long updateTime = 1000;
 	
-	public UpdateButtonAnimation(JButton button, Activity activity, Function<Activity,String> buttonPrinter) {
+	private Map<JButton,Activity> activityMap;
+	
+	public UpdateButtonAnimation(Map<JButton,Activity> activityMap, Consumer<Map<JButton,Activity>> buttonPrinter) {
 		super(updateTime,
-				() -> button.getText(),
-				value -> button.setText(value),
-				current -> Optional.of(buttonPrinter.apply(activity))
+				() -> activityMap,
+				value -> { buttonPrinter.accept(activityMap); },
+				current -> Optional.of(current)
 		);
+		this.activityMap = activityMap;
 	}
 
+	public long countActive() {
+		return activityMap.values().stream().filter(a -> a.isActive()).count();
+	}
 }

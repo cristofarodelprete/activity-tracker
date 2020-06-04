@@ -7,6 +7,7 @@ public enum ConfigKey {
 	fadeDuration(Integer.class),
 	language,
 	alwaysOnTop(Boolean.class),
+	displayStyle(ActivityDisplayStyle.class),
 	autorun(Boolean.class);
 	
 	private final Class<?> type;

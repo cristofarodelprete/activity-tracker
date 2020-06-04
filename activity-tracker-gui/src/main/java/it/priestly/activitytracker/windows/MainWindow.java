@@ -8,8 +8,12 @@ import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.Insets;
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 import javax.swing.BorderFactory;
 import javax.swing.Box;
@@ -23,6 +27,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import it.priestly.activitytracker.animations.UpdateButtonAnimation;
+import it.priestly.activitytracker.enums.ActivityDisplayStyle;
 import it.priestly.activitytracker.enums.ConfigKey;
 import it.priestly.activitytracker.objects.Activity;
 import it.priestly.activitytracker.services.ActivityService;
@@ -56,7 +61,7 @@ public class MainWindow extends JFrame {
 	
 	private JPanel list = null;
 	
-	private Map<Activity, UpdateButtonAnimation> activityMap = new HashMap<Activity, UpdateButtonAnimation>();
+	UpdateButtonAnimation activityAnimation = null;
 	
 	private FadeMouseListener fadeMouseListener = null;
 	
@@ -72,6 +77,27 @@ public class MainWindow extends JFrame {
 
 	private String deleteText = null;
 	
+	private ActivityDisplayStyle displayStyle = null;
+	
+	private String formatTime(Duration duration) {
+		List<Integer> time = new ArrayList<Integer>();
+		if (!duration.isZero() && !duration.isNegative()) {
+			long tmp = duration.getSeconds();
+			time.add((int)(tmp % 60));
+			tmp /= 60;
+			if (tmp > 0) {
+				time.add((int)(tmp % 60));
+				tmp /= 60;
+				if (tmp > 0) {
+					time.add((int)tmp);
+				}
+			}
+		}
+		Collections.reverse(time);
+		return time.stream().map(t -> zpad(t, 2))
+				.collect(Collectors.joining(":"));
+	}
+	
 	private String zpad(int n, int d) {
 		String s = Long.toString(n);
 		while (s.length() < d) {
@@ -80,37 +106,46 @@ public class MainWindow extends JFrame {
 		return s;
 	}
 	
-	private String buttonPrinter(Activity activity) {
-		String time = null;
-		Duration duration = activity.getTotalAllocatedTime();
-		if (!duration.isZero() && !duration.isNegative()) {
-			long tmp = duration.getSeconds();
-			int seconds = (int)(tmp % 60);
-			tmp /= 60;
-			int minutes = (int)(tmp % 60);
-			tmp /= 60;
-			int hours = (int)tmp;
-			time = zpad(minutes, 2) + ":" + zpad(seconds, 2);
-			if (hours > 0) {
-				time = zpad(hours, 2) + ":" + time;
-			}
+	private String formatPercentage(Duration current, Duration total) {
+		if (current.isNegative() || current.isZero()) return "";
+		double n = (double)current.getSeconds() / (double)total.getSeconds();
+		return Double.toString(((double)Math.round(n * 1000)) / 10d) + "%";
+	}
+	
+	private void buttonPrinter(Map<JButton,Activity> activity) {
+		Duration total = Duration.ZERO;
+		Map<JButton,Duration> activityDurations = new HashMap<JButton,Duration>();
+		for (Map.Entry<JButton,Activity> entry : activity.entrySet()) {
+			Duration time = entry.getValue().getTotalAllocatedTime();
+			total = total.plus(time);
+			activityDurations.put(entry.getKey(), time);
 		}
-		if (time != null) {
-			return activity.getName() + " (" + time + ")";
-		} else {
-			return activity.getName();
+		for (JButton button : activity.keySet()) {
+			String details = "";
+			if (displayStyle == ActivityDisplayStyle.time ||
+					displayStyle == ActivityDisplayStyle.timeAndPercentage) {
+				details = formatTime(activityDurations.get(button));
+			}
+			if (displayStyle == ActivityDisplayStyle.percentage ||
+					displayStyle == ActivityDisplayStyle.timeAndPercentage) {
+				details = (!details.isEmpty() ? details + " - " : "") +
+						formatPercentage(activityDurations.get(button), total);
+			}
+			button.setText(activity.get(button).getName() +
+					(!details.isEmpty() ? " (" + details + ")" : ""));
 		}
 	}
 	
 	public void render() {
-		for (UpdateButtonAnimation animation : activityMap.values()) {
-			animation.stop();
-			activityMap.clear();
+		if (activityAnimation != null) {
+			activityAnimation.stop();
+			activityAnimation = null;
 		}
-		Iterable<Activity> activities = activityService.getActivities();
+		List<Activity> activities = activityService.getActivities();
 		list.removeAll();
 		GridBagLayout layout = (GridBagLayout)list.getLayout();
 		int y = 0;
+		Map<JButton,Activity> buttonMap = new HashMap<JButton,Activity>();
 		for (Activity activity : activities) {
 			if (activity != null) {
 				JButton button = new JButton();
@@ -118,7 +153,7 @@ public class MainWindow extends JFrame {
 					activityService.switchToActivity(activity.getId());
 					render();
 				}));
-				button.setText(buttonPrinter(activity));
+				button.setText("");
 				button.setFont(button.getFont().deriveFont(Font.BOLD));
 				button.setForeground(Color.WHITE);
 				button.setBackground(activity.isActive() ? Color.decode("#008000") : Color.decode("#800000"));
@@ -126,9 +161,6 @@ public class MainWindow extends JFrame {
 						GridBagConstraints.EAST, GridBagConstraints.HORIZONTAL,
 						new Insets(0, 0, 0, 0), 0, 0));
 				list.add(button);
-				if (activity.isActive()) {
-					activityMap.put(activity, new UpdateButtonAnimation(button, activity, this::buttonPrinter));
-				}
 				JButton delete = new JButton();
 				delete.setAction(new DelegatedAction(e -> {
 					uiHelper.confirm(uiHelper.getMessage("message.confirmDelete", activity.getName()), () -> {
@@ -141,21 +173,23 @@ public class MainWindow extends JFrame {
 						GridBagConstraints.WEST, GridBagConstraints.HORIZONTAL,
 						new Insets(0, 0, 0, 0), 0, 0));
 				list.add(delete);
+				buttonMap.put(button, activity);
 				y++;
 			}
 		}
+		buttonPrinter(buttonMap);
+		activityAnimation = new UpdateButtonAnimation(buttonMap, this::buttonPrinter);
 		validate();
 		pack();
 		repaint();
-		for (UpdateButtonAnimation animation : activityMap.values()) {
-			new Thread(animation).start();
-		}
+		new Thread(activityAnimation).start();
 	}
 	
 	private void exit() {
-		if (!activityMap.isEmpty()) {
-			String message = activityMap.size() > 1 ?
-					uiHelper.getMessage("message.activitiesRunning", activityMap.size()) :
+		if (activityAnimation != null) {
+			long count = activityAnimation.countActive();
+			String message = count > 1 ?
+					uiHelper.getMessage("message.activitiesRunning", count) :
 					uiHelper.getMessage("message.activityRunning");
 			uiHelper.confirm(message, () -> {
 				activityService.switchOff();
@@ -244,6 +278,7 @@ public class MainWindow extends JFrame {
 		dispose();
 		uiHelper.setLocale();
 		Boolean enableTransparency = configurationHelper.get(ConfigKey.enableTransparency);
+		displayStyle = configurationHelper.get(ConfigKey.displayStyle);
 		if (enableTransparency != null && enableTransparency && guiUtils.isTransparencySupported()) {
 			float hiddenOpacity = configurationHelper.get(ConfigKey.hiddenOpacity);
 			int transitionDuration = configurationHelper.get(ConfigKey.fadeDuration);

@@ -21,7 +21,8 @@ public class DatabaseConfigurationServiceImpl implements ConfigurationService {
 	
 	private static final ConfigKey[] supportedKeys = new ConfigKey[] {
 			ConfigKey.checkUpdates, ConfigKey.enableTransparency, ConfigKey.hiddenOpacity,
-			ConfigKey.fadeDuration, ConfigKey.language, ConfigKey.alwaysOnTop
+			ConfigKey.fadeDuration, ConfigKey.language, ConfigKey.alwaysOnTop,
+			ConfigKey.displayStyle
 	};
 	
 	@Autowired
